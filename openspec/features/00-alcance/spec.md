@@ -1,6 +1,7 @@
 # Spec — 00 Alcance del Replatforming
 
-> **Estado**: `DRAFT` — pendiente de aprobación humana (puerta **G-SPEC**).
+> **Estado**: `APPROVED` — aprobado por el responsable (puerta **G-SPEC**, 2026-10-15).
+> Módulo piloto autorizado: `01-nucleo-datos`.
 > **Sintaxis**: EARS (ISO/IEC 25030). Cada requisito tiene criterio de verificación.
 > **Fuente**: `docs/analisis-ATPPuestos.md` (F0).
 > **Módulo**: `00-alcance` (transversal — no genera código; define el universo del proyecto).
@@ -59,13 +60,18 @@ Delimitar qué parte de la KB GeneXus `ATPPuestos` se reimplementa en el stack o
 
 ## 6. Criterios de aceptación del alcance
 
-- [ ] R-001…R-006 aprobados por el responsable del proyecto.
-- [ ] R-101…R-106 aprobados; sin objetos ambiguos sin clasificar.
-- [ ] Existe el **listado nominal** de objetos IN con su módulo destino (ver `plan.md`).
-- [ ] Priorización de módulos acordada (ver `plan.md`).
+- [x] R-001…R-006 aprobados por el responsable del proyecto. *(2026-10-15)*
+- [x] R-101…R-106 aprobados; sin objetos ambiguos sin clasificar. *(2026-10-15)*
+- [x] Priorización de módulos acordada; piloto `01-nucleo-datos` confirmado (ver `plan.md`). *(2026-10-15)*
+- [ ] Existe el **listado nominal** de objetos IN con su módulo destino — se produce por módulo durante la fase de análisis (`analista-gx`).
 
-## 7. Preguntas abiertas (bloqueantes para F2)
+## 7. Decisiones adoptadas (resueltas 2026-10-15)
 
-1. ¿Se obtendrán credenciales de `Rentas` (devmssqlatp.ecom.com.ar) o se deriva el esquema de la KB?
-2. ¿El **login/seguridad** (GAM/`SCRTY`/`Seg_ControlAccesoWS`) se reimplementa con el mismo modelo o se moderniza (p. ej. JWT/OIDC)?
-3. ¿Se requiere paridad de **reportes** (impresión/PDF) o basta una versión web equivalente?
+| # | Pregunta | Decisión | Impacto |
+|---|---|---|---|
+| D1 | Esquema físico de `Rentas` | **El responsable proveerá credenciales** de conexión (se cargan en `.env`, nunca en el repo). Hasta disponer de ellas, el esquema se deriva de la KB y cada supuesto se marca (R-203). | Gate **G-DATA**: validar entidad ↔ tabla real en cuanto lleguen las credenciales. |
+| D2 | Seguridad / login | **Paridad estricta con el modelo legacy**: GAM/`SCRTY`/`Seg_ControlAccesoWS` se reimplementan con el mismo esquema de usuarios y roles. | Módulo `09-seguridad` migra el modelo tal cual; sin JWT/OIDC. |
+| D3 | Reportes / impresión | **Paridad de impresión exacta (PDF)**: volantes, actas y listados deben replicar el formato impreso original. | Requiere capturar plantillas/formularios de impresión en cada módulo que los emita. |
+
+> La provisión de credenciales de `Rentas` es la única entrada externa pendiente; **no bloquea**
+> el análisis y las specs (que se derivan de la KB), pero sí la validación final de paridad de datos.

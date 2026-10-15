@@ -7,7 +7,7 @@
 
 - [ ] A.1 Redactar `spec.md` en sintaxis EARS (R-001…R-006, R-101…R-106, R-201…R-203). — *hecho (borrador)*
 - [ ] A.2 Revisar cada requisito contra `docs/analisis-ATPPuestos.md` (cobertura y exactitud).
-- [ ] A.3 Incorporar feedback del responsable del proyecto.
+- [x] A.3 Incorporar feedback del responsable del proyecto. *(2026-10-15 — decisiones D1–D3)*
 
 ## B. Definición del alcance IN
 
@@ -24,17 +24,18 @@
 
 ## D. Resolución de ambigüedades y decisiones bloqueantes
 
-- [ ] D.1 Acceso a la BD `Rentas` (credenciales vs. derivar de la KB) — **bloqueante F2**.
-- [ ] D.2 Modelo de seguridad/login (paridad GAM vs. modernización JWT/OIDC).
-- [ ] D.3 Requisito de paridad de reportes/impresión.
-- [ ] D.4 Cerrar la lista de "pendientes de decisión" (R-106).
+- [x] D.1 Acceso a la BD `Rentas`: **el responsable proveerá credenciales**; hasta entonces el esquema se deriva de la KB (R-203). *(2026-10-15)*
+- [x] D.2 Seguridad/login: **paridad estricta** con el modelo legacy GAM/`SCRTY`/`Seg_ControlAccesoWS`. *(2026-10-15)*
+- [x] D.3 Reportes/impresión: **paridad de impresión exacta (PDF)**. *(2026-10-15)*
+- [ ] D.4 Cerrar la lista de "pendientes de decisión" (R-106) — se completa por módulo durante el análisis.
 
 ## E. Aprobación (puerta G-SPEC)
 
-- [ ] E.1 Aprobación explícita del alcance por el responsable.
-- [ ] E.2 Fijar prioridad de módulos (`plan.md` §2) y confirmar el piloto `01-nucleo-datos`.
-- [ ] E.3 Registrar la aprobación en `.engram/` (memoria persistente).
+- [x] E.1 Aprobación explícita del alcance por el responsable. *(2026-10-15)*
+- [x] E.2 Prioridad de módulos fijada (`plan.md` §2); piloto `01-nucleo-datos` confirmado. *(2026-10-15)*
+- [x] E.3 Aprobación y decisiones registradas en `.engram/`. *(2026-10-15)*
 
 ## F. Traspaso
 
-- [ ] F.1 Emitir `/extract-spec` para `01-nucleo-datos`.
+- [x] F.1 Emitir `/extract-spec` para `01-nucleo-datos`: extracción de la KB (8 transacciones + 2 procs) y `spec.md`/`plan.md`/`tasks.md` redactados. *(2026-10-15)*
+- [ ] F.2 Aprobar el **G-SPEC del módulo `01-nucleo-datos`**. ← **en curso**

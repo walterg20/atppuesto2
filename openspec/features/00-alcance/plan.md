@@ -58,6 +58,8 @@ y módulos `Deprecated`/`iOS`/`Social`/`Store`/`Purchases`/`Media`/`Offline`/`Sy
 
 ## 7. Secuencia inmediata tras la aprobación
 
-1. Aprobación G-SPEC de este alcance.
-2. Resolver preguntas abiertas §7 de `spec.md` (BD, seguridad, reportes).
-3. Arrancar **`01-nucleo-datos`** con `/extract-spec`.
+1. [x] Aprobación G-SPEC de este alcance. *(2026-10-15)*
+2. [x] Resolver preguntas abiertas §7 de `spec.md` — ver "Decisiones adoptadas" (D1 credenciales BD, D2 paridad GAM, D3 impresión PDF). *(2026-10-15)*
+3. [x] Arrancar **`01-nucleo-datos`** con `/extract-spec`: extracción de la KB + `spec.md`/`plan.md`/`tasks.md` redactados. *(2026-10-15)*
+4. [ ] Aprobar el **G-SPEC del módulo `01-nucleo-datos`** (`openspec/features/01-nucleo-datos/spec.md`). ← **en curso**
+5. [ ] Validar esquema contra `Rentas` (**G-DATA**) y ejecutar el scaffold `backend/` + `frontend/`.
