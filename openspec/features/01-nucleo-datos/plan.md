@@ -2,12 +2,13 @@
 
 > Descomposición técnica del módulo `01-nucleo-datos`: mapeo JPA exacto, contratos REST y
 > desglose de implementación. Acompaña a `spec.md` (mismo gate **G-SPEC**).
-> Estado: `DRAFT`.
+> Estado: `APPROVED` (2026-10-16) — incluye ABM de escritura (P-01) y producto anidado (P-03).
 
 ## 1. Estrategia del piloto
 
-Se implementa **backend/datos primero** (verificable sin UI) y **web después** (fase 2,
-pantalla `ListadoLocalidades`), reutilizando el contrato REST ya estabilizado.
+Se implementa **backend/datos primero** (verificable sin UI) y **web después** (fase 2:
+pantalla `ListadoLocalidades` + ABM de las maestras, **replicando el CSS/JS/HTML del origen
+GeneXus** — decisión P-01), reutilizando el contrato REST ya estabilizado.
 
 ```text
 KB (extraído)  →  Entidades JPA  →  Repositorios  →  Servicios  →  Controladores /api/v1
@@ -111,7 +112,10 @@ si está vacío.
 
 ## 3. Contratos REST (OpenAPI 3.0, resumen)
 
-Base: `/api/v1`. Solo lectura. Errores uniformes `{ "code", "message" }` (R-023).
+Base: `/api/v1`. **Lectura + escritura (ABM, P-01)**. Errores uniformes `{ "code", "message" }`
+(R-023, R-031, R-032). `productos` usa formato **anidado** con vigencias (P-03).
+
+### 3.1 Lectura
 
 | Método | Ruta | Descripción | Parámetros | Respuesta |
 |---|---|---|---|---|
@@ -130,7 +134,24 @@ Base: `/api/v1`. Solo lectura. Errores uniformes `{ "code", "message" }` (R-023)
 | GET | `/productos/{prodCod}` | Producto + vigencias | path `prodCod` | `ProductoDto` \| 404 |
 | GET | `/productos/{prodCod}/importes-vigentes` | Fórmulas `ProdIMax1..4` | path `prodCod` | `ImportesVigentesDto` |
 
-**DTOs (records):**
+### 3.2 Escritura (ABM — R-030…R-035)
+
+| Método | Ruta | Descripción | Body | Respuesta |
+|---|---|---|---|---|
+| POST | `/provincias`, `/localidades`, `/calles`, `/caminos`, `/areas`, `/jurisdicciones`, `/feriados`, `/productos` | Alta | DTO de escritura (§3.3) | 201 + `Location` \| 400 \| 409 (PK existente) |
+| PUT | `…/{id}` | Modificación completa | DTO de escritura | 200 \| 400 \| 404 |
+| DELETE | `…/{id}` | Baja | — | 204 \| 404 |
+
+Notas de contrato:
+
+- `feriados` (POST): el body **no** incluye `FerFchReg`/`FerUsuario` — se rellenan en servidor (R-033).
+- `productos` (POST/PUT): body `ProductoEscrituraDto` con `vigencias[]` anidadas; se persiste
+  raíz + vigencias atómicamente y se valida unicidad de `ProdFchVig` por `ProdCod` (R-034).
+- Tras cada escritura de vigencias, `GET …/importes-vigentes` refleja el recálculo (R-035, sin persistir).
+
+### 3.3 DTOs (records)
+
+Salida (lectura):
 
 ```java
 record ProvinciaDto(Integer provCod, String provNombre) {}
@@ -151,16 +172,40 @@ record ImportesVigentesDto(Integer prodCod, BigDecimal prodIMax1, BigDecimal pro
                            BigDecimal prodIMax3, BigDecimal prodIMax4) {}
 ```
 
+Entrada (escritura — con `jakarta.validation`):
+
+```java
+record ProvinciaEscrituraDto(@NotNull Integer provCod, @NotBlank @Size(max = 40) String provNombre) {}
+record LocalidadEscrituraDto(@NotNull Integer locCod, @NotBlank @Size(max = 20) String locNom,
+                             @Size(max = 15) String locNomProv, Integer locCodPost,
+                             @NotNull Integer provCod) {}
+record CalleEscrituraDto(@NotNull Integer callCod, @NotBlank @Size(max = 22) String callNom) {}
+record CaminoEscrituraDto(@NotBlank @Size(max = 3) String camID,
+                          @Size(max = 100) String canRuta) {}
+record AreaEscrituraDto(@NotNull Long areaId, @NotBlank @Size(max = 50) String areaDesc) {}
+record JurisdiccionEscrituraDto(@NotNull Integer jurCod, @NotBlank @Size(max = 20) String jurNom) {}
+record FeriadoEscrituraDto(@NotNull LocalDate ferFecha, @NotBlank @Size(max = 100) String ferDescripcion,
+                           @Size(max = 1) String ferTipo) {}   // auditoría se rellena (R-033)
+record ProductoVigenciaEscrituraDto(@NotNull LocalDate prodFchVig, @NotNull BigDecimal prodImpu1,
+                                    @NotNull BigDecimal prodImpu2, @NotNull BigDecimal prodImpu3,
+                                    @NotNull BigDecimal prodImpu4) {}
+record ProductoEscrituraDto(@NotNull Integer prodCod, @NotBlank @Size(max = 25) String prodDesc,
+                            Integer prodTipCal, Integer tpPriID, @Size(max = 3) String uMedNroId,
+                            @Size(max = 40) String uMedNombre, @Size(max = 1) String prodAcop,
+                            Integer prodAnula,
+                            @Valid @NotNull List<ProductoVigenciaEscrituraDto> vigencias) {}
+```
+
 ## 4. Componentes a construir
 
 | Capa | Artefacto | Requisitos |
 |---|---|---|
 | Entidades | `Provincia`, `Localidad`, `Calle`, `Camino`, `Area`, `Jurisdiccion`, `Feriado`, `Producto`, `ProductoVigencia` | R-001…R-006 |
 | Repositorios | `ProvinciaRepository`, `LocalidadRepository`, `CalleRepository`, `CaminoRepository`, `AreaRepository`, `JurisdiccionRepository`, `FeriadoRepository`, `ProductoRepository`, `ProductoVigenciaRepository` | R-001…R-006 |
-| Servicios | `NucleoConsultaService` (catálogos), `ProductoService` (vigencias + fórmulas), `BusquedaService` (`Bus_DesLoc`, `BuscarCamino`) | R-005, R-010, R-011 |
-| Controladores | `ProvinciaController`, `LocalidadController`, `CalleController`, `CaminoController`, `AreaController`, `JurisdiccionController`, `FeriadoController`, `ProductoController` | R-020…R-023 |
+| Servicios | `NucleoConsultaService` (catálogos), `ProductoService` (vigencias + fórmulas + alta/modificación atómica), `BusquedaService` (`Bus_DesLoc`, `BuscarCamino`), `NucleoEscrituraService` (ABM genérico de maestras + `FeriadoAuditoria`) | R-005, R-010, R-011, R-030…R-035 |
+| Controladores | `ProvinciaController`, `LocalidadController`, `CalleController`, `CaminoController`, `AreaController`, `JurisdiccionController`, `FeriadoController`, `ProductoController` (lectura + `POST`/`PUT`/`DELETE`) | R-020…R-023, R-030…R-035 |
 | Config | `application.yml` con `${DB_URL}`/`${DB_USER}`/`${DB_PASSWORD}`, `spring.jpa.hibernate.ddl-auto=none` | R-204, R-205 |
-| Frontend (fase 2) | `localidad-list` (componente standalone + servicio HTTP + ruta) | R-020, R-021 |
+| Frontend (fase 2) | `localidad-list` + pantallas **ABM** de las 8 maestras (componentes standalone + servicio HTTP + rutas), **replicando CSS/JS/HTML del origen GeneXus** (extraído vía MCP de los WebPanels) | R-020, R-021, R-030…R-035, P-01 |
 
 ## 5. Matriz de paridad (R-202)
 
@@ -178,6 +223,9 @@ record ImportesVigentesDto(Integer prodCod, BigDecimal prodIMax1, BigDecimal pro
 | Proc `Bus_DesLoc` (`For Each ... Where LocCod`) | R-010, R-022 | `BusquedaServiceTest` |
 | Proc `BuscarCamino` (`Trim(CanRuta)`) | R-011, R-022 | `BusquedaServiceTest` |
 | WebPanel `ListadoLocalidades` | R-020, R-021 | E2E Playwright (fase 2) |
+| ABM escritura 8 maestras (`Commit`/`Delete` legacy) | R-030, R-031, R-032 | `*ControllerWriteIT` (MockMvc, 201/400/404/409) |
+| `Feriados` auditoría (`FerFchReg`, `FerUsuario`) | R-033 | `FeriadoControllerWriteIT` |
+| `Productos` nivel 0 + nivel 1 atómico | R-034, R-035 | `ProductoControllerWriteIT` |
 
 ## 6. Riesgos y mitigaciones
 
@@ -191,11 +239,11 @@ record ImportesVigentesDto(Integer prodCod, BigDecimal prodIMax1, BigDecimal pro
 
 ## 7. Secuencia de ejecución
 
-1. [ ] Aprobar `spec.md`, `plan.md`, `tasks.md` (**G-SPEC**).
+1. [x] Aprobar `spec.md`, `plan.md`, `tasks.md` (**G-SPEC**) — *2026-10-16*.
 2. [ ] Validar esquema contra `Rentas` si hay credenciales (**G-DATA**); si no, registrar ASM.
 3. [ ] Scaffold `backend/` (Spring Boot, Maven Wrapper) + config por env.
 4. [ ] Implementar entidades + repositorios (T-101…T-109).
 5. [ ] Implementar servicios de consulta/fórmulas/búsquedas (T-201…T-204).
-6. [ ] Implementar controladores REST (T-301…T-308).
+6. [ ] Implementar controladores REST lectura (T-301…T-309) y **escritura ABM (T-310…T-318)**.
 7. [ ] Pruebas (T-401…T-405) y matriz de paridad.
-8. [ ] (Fase 2) Scaffold `frontend/` + pantalla `ListadoLocalidades` (T-501…T-503).
+8. [ ] (Fase 2) Scaffold `frontend/` + `ListadoLocalidades` + **pantallas ABM con diseño del origen** (T-501…T-506).

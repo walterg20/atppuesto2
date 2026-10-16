@@ -1,6 +1,6 @@
 # Spec — 01 Núcleo de Datos (piloto)
 
-> **Estado**: `DRAFT` — pendiente de aprobación (puerta **G-SPEC**).
+> **Estado**: `APPROVED` — puerta **G-SPEC** aprobada el **2026-10-16** por el responsable.
 > **Sintaxis**: EARS (ISO/IEC 25030). Cada requisito incluye criterio de verificación.
 > **Fuente legacy**: KB `ATPPuestos` (GeneXus **18.0.13.186702**), índice "Booting".
 > **Módulo**: `01-nucleo-datos` — **piloto** del proceso SDD.
@@ -34,11 +34,12 @@ las consumen.
 |---|---|---|
 | Transacciones maestras (8) | `Provincia`, `Localidades`, `Calles`, `CAMINOS`, `Areas`, `Jurisdic`, `Feriados`, `Productos` | extracción `Structure` (§4.1) |
 | Procedimientos de búsqueda (2) | `Bus_DesLoc`, `BuscarCamino` | extracción `Rules`/`Source` (§4.2) |
-| Web funcional relacionado (1) | `ListadoLocalidades` | inventario F0 §WebPanels; **fase 2** (web) |
+| ABM de escritura (8 maestras) | Alta/baja/modificación de las transacciones del piloto | decisión **P-01** (2026-10-16): ABM completo |
+| Web funcional relacionado (1) | `ListadoLocalidades` + pantallas ABM | inventario F0 §WebPanels; **fase 2** (web, replicando CSS/JS/HTML del origen) |
 
 ### 3.2 OUT — no se reimplementa en este módulo
 
-- ABM de escritura (alta/baja/modificación) de las maestras: el piloto expone **solo lectura**. Se difiere a la fase web salvo decisión en contrario (§7).
+- ~~ABM de escritura (alta/baja/modificación) de las maestras: el piloto expone **solo lectura**.~~ **Resuelto (P-01, 2026-10-16)**: el piloto incluye **ABM completo** de escritura vía REST (§5.4) y en fase 2 las pantallas ABM replican el CSS/JS/HTML del origen GeneXus.
 - Objetos de otros módulos que **consumen** estas tablas: `F2276` (usa `Bus_DesLoc`) y `CodigoBarra` (usa `BuscarCamino`) pertenecen a los módulos 05 y de códigos de barra respectivamente.
 - Design System Unanimo, `Gx00xx`, EOs/SDTs de plataforma (ver `00-alcance` §4).
 
@@ -151,14 +152,29 @@ Variables tipadas: `Bus_DesLoc` → `&LocCod NUMERIC(5)`, `&LocNom CHARACTER(20)
 
 ### 5.3 API REST (contratos en `plan.md` §3)
 
-- **R-020 (Ubicuo)** El sistema deberá exponer consultas de las maestras bajo `/api/v1` en modo **solo lectura**: `provincias`, `localidades`, `calles`, `caminos`, `areas`, `jurisdicciones`, `feriados`, `productos`.
-  - *Verificación*: pruebas de contrato (códigos 200/404) por endpoint.
+- **R-020 (Ubicuo)** El sistema deberá exponer las maestras bajo `/api/v1` con operaciones de **consulta y escritura (ABM)**: `provincias`, `localidades`, `calles`, `caminos`, `areas`, `jurisdicciones`, `feriados`, `productos`.
+  - *Verificación*: pruebas de contrato (códigos 200/404 en lectura; 201/400/404/409 en escritura) por endpoint.
 - **R-021 (Ubicuo)** El sistema deberá permitir filtrar `localidades` por `ProvCod` y `feriados` por rango de fechas.
   - *Verificación*: pruebas con filtros combinados y sin filtro.
 - **R-022 (Ubicuo)** El sistema deberá exponer `Bus_DesLoc` y `BuscarCamino` como recursos dedicados que reflejen su contrato de búsqueda (§5.2).
   - *Verificación*: `GET /api/v1/localidades/{locCod}/nombre` y `GET /api/v1/caminos/{camId}/ruta` con casos existente/inexistente.
 - **R-023 (Comportamiento no deseado)** SI un recurso solicitado no existe, ENTONCES el sistema deberá responder `404` con un cuerpo de error uniforme (sin filtrar detalles internos).
   - *Verificación*: prueba de cada endpoint con ID inexistente.
+
+### 5.4 Escritura (ABM — decisión P-01)
+
+- **R-030 (Ubicuo)** El sistema deberá permitir **crear**, **modificar** y **eliminar** registros de las ocho maestras vía `POST`/`PUT`/`DELETE` sobre los mismos recursos de `/api/v1` (§5.3), preservando PK, tipos y longitudes originales (R-002).
+  - *Verificación*: prueba de ciclo completo crear→modificar→eliminar por entidad contra BD real; 201 con `Location` en alta.
+- **R-031 (Comportamiento no deseado)** SI un `POST` usa una clave primaria ya existente, ENTONCES el sistema deberá responder `409` con el cuerpo de error uniforme; SI el `PUT`/`DELETE` referencia una clave inexistente, `404`.
+  - *Verificación*: prueba de duplicado y de referencia inexistente por entidad.
+- **R-032 (Ubicuo)** El sistema deberá rechazar payloads inválidos (tipos, longitudes excedidas, nulos en atributos obligatorios) con `400` y detalle de violaciones usando Jakarta Bean Validation.
+  - *Verificación*: prueba por DTO de escritura con al menos una violación de longitud y una de nulidad.
+- **R-033 (Dirigido por contexto)** MIENTRAS se crea o modifique un `Feriado`, el sistema deberá rellenar automáticamente `FerFchReg` (fecha/hora del servidor) y `FerUsuario` (usuario autenticado o valor de configuración en fase 1).
+  - *Verificación*: alta sin enviar auditoría → persiste con valores generados.
+- **R-034 (Dirigido por contexto)** MIENTRAS se cree o modifique un `Producto`, el sistema deberá persistir el producto (nivel 0) y sus vigencias (nivel 1) **atómicamente**, validando que cada `ProdFchVig` sea única por `ProdCod`.
+  - *Verificación*: prueba de alta de producto con N vigencias y de duplicado de vigencia (409).
+- **R-035 (Ubicuo)** El sistema deberá recalcular `ProdIMax1..4` **derivados** (R-005) tras cada escritura de vigencias, sin persistirlos.
+  - *Verificación*: tras agregar una vigencia más reciente, `GET /productos/{prodCod}/importes-vigentes` refleja el nuevo valor.
 
 ## 6. Requisitos de proceso y no funcionales
 
@@ -173,19 +189,20 @@ Variables tipadas: `Bus_DesLoc` → `&LocCod NUMERIC(5)`, `&LocNom CHARACTER(20)
 - **R-205 (Ubicuo)** El mapeo deberá respetar la **regla de nombres físicos de 8 caracteres** de las tablas legacy.
   - *Verificación*: revisión de `@Table(name)` contra §4.3.
 
-## 7. Pendientes de decisión (R-106)
+## 7. Pendientes de decisión (R-106) — **resueltos 2026-10-16**
 
-| ID | Pendiente | Dueño | Impacto |
+| ID | Pendiente | Dueño | Resolución |
 |---|---|---|---|
-| P-01 | ¿El piloto incluye ABM de escritura o solo lectura? (estado actual: solo lectura) | Responsable | Alcance de la fase web y contratos POST/PUT/DELETE. |
-| P-02 | Confirmación de ASM-01…05 contra la BD `Rentas`. | Responsable (credenciales) | Gate G-DATA. |
-| P-03 | Formato exacto del endpoint de `productos` con vigencias (anidado vs. plano). | Analista + Responsable | Contrato OpenAPI. |
+| P-01 | ¿El piloto incluye ABM de escritura o solo lectura? | Responsable | **ABM completo** (R-030…R-035). Fase 2: pantallas ABM replicando CSS/JS/HTML del origen GeneXus. |
+| P-02 | Confirmación de ASM-01…05 contra la BD `Rentas`. | Responsable | **Aprobado** — credenciales provistas en `.env`; validación en puerta G-DATA. |
+| P-03 | Formato del endpoint de `productos` con vigencias (anidado vs. plano). | Analista + Responsable | **Anidado**: `ProductoDto.vigencias[]` (fiel al nivel 1 de GeneXus, 1 viaja por alta/modificación). |
 
 ## 8. Criterios de aceptación
 
 - [ ] R-001…R-006 implementados con prueba por entidad.
 - [ ] R-010, R-011 con equivalencia verificada contra la lógica `For Each` original.
-- [ ] R-020…R-023 con pruebas de contrato.
+- [ ] R-020…R-023 con pruebas de contrato (lectura).
+- [ ] R-030…R-035 con pruebas de contrato (escritura: 201/400/404/409) y ciclo ABM por entidad.
 - [ ] R-201…R-205 verificados; ASM-01…05 validados o marcados.
-- [ ] Matriz de paridad (`plan.md` §5) completa.
+- [ ] Matriz de paridad (`plan.md` §5) completa, incluyendo filas de escritura.
 - [ ] Suite verde (G-TEST) y sin secretos (G-SEC).

@@ -3,7 +3,7 @@
 > Checklist verificable del módulo `01-nucleo-datos`. Cada tarea es atómica y trazable a un
 > requisito de `spec.md`. **Ninguna tarea de código (T-1xx+) se inicia sin aprobar `spec.md`
 > (puerta G-SPEC)** — guardarraíl G2.
-> Estado: `DRAFT`.
+> Estado: `APPROVED` (2026-10-16) — P-01 = **ABM completo**, P-03 = **productos anidado**.
 
 ## A. Extracción y especificación (F2 — análisis)
 
@@ -13,24 +13,24 @@
 - [x] A.4 Obtener el **nombre físico de tabla** de cada transacción (`get_indexes` → `result.name`).
 - [x] A.5 Obtener índices/PK/FK de las 8 tablas.
 - [x] A.6 Verificar consumidores (`impact`): `Bus_DesLoc`←`F2276`, `BuscarCamino`←`CodigoBarra`.
-- [ ] A.7 Redactar `spec.md` en EARS (R-001…R-006, R-010/R-011, R-020…R-023, R-201…R-205). — *hecho (borrador)*
-- [ ] A.8 Redactar `plan.md` (mapeo JPA + contratos + matriz de paridad). — *hecho (borrador)*
-- [ ] A.9 Redactar `tasks.md`. — *hecho (borrador)*
-- [ ] A.10 Revisar los tres archivos contra la extracción de la KB y resolver D-01…D-03.
+- [x] A.7 Redactar `spec.md` en EARS (R-001…R-006, R-010/R-011, R-020…R-023, **R-030…R-035**, R-201…R-205). *(2026-10-16)*
+- [x] A.8 Redactar `plan.md` (mapeo JPA + contratos lectura/escritura + matriz de paridad). *(2026-10-16)*
+- [x] A.9 Redactar `tasks.md`. *(2026-10-16)*
+- [x] A.10 Revisar los tres archivos contra la extracción de la KB y resolver P-01…P-03. *(2026-10-16)*
 
 ## B. Aprobación (puerta G-SPEC)
 
-- [ ] B.1 Resolver los pendientes P-01…P-03 (`spec.md` §7).
-- [ ] B.2 Marcar `spec.md` como `APPROVED` y registrar la fecha.
-- [ ] B.3 Registrar la decisión en `.engram/` (`mem_save`, tipo `decision`).
+- [x] B.1 Resolver los pendientes P-01…P-03 (`spec.md` §7). *(2026-10-16 — P-01 ABM completo; P-02 credenciales en `.env`; P-03 anidado)*
+- [x] B.2 Marcar `spec.md`/`plan.md`/`tasks.md` como `APPROVED` y registrar la fecha. *(2026-10-16)*
+- [x] B.3 Registrar la decisión en `.engram/` (`mem_save`, tipo `decision`). *(2026-10-16)*
 
 ## C. Validación de esquema (puerta G-DATA)
 
-- [ ] C.1 Confirmar si hay credenciales de `Rentas` (`devmssqlatp.ecom.com.ar:1433`).
+- [ ] C.1 Confirmar credenciales de `Rentas` en `.env` (`DB_USER`/`DB_PASSWORD`).
 - [ ] C.2 **ASM-01**: validar el nombre físico real de cada columna (`INFORMATION_SCHEMA.COLUMNS`).
 - [ ] C.3 **ASM-02/03/05**: validar tipos reales (`NUMERIC`→`smallint`/`int`/`bigint`; `DATE`→`date`; `DATETIME`→`datetime2`).
 - [ ] C.4 **ASM-04**: validar `varchar` vs. `char` en `CHARACTER(n)`.
-- [ ] C.5 Ajustar las entidades si difieren; si no hay credenciales, dejar ASM documentados (R-203).
+- [ ] C.5 Ajustar las entidades si difieren; registrar hallazgos en `docs/analisis-ATPPuestos.md`.
 
 ## D. Scaffold backend (T-0xx)
 
@@ -59,6 +59,9 @@
 - [ ] T-202 `BusquedaService.busDesLoc(locCod)` equivalente a `Bus_DesLoc` (R-010).
 - [ ] T-203 `BusquedaService.buscarCamino(camID)` con `TRIM(CanRuta)` (R-011).
 - [ ] T-204 `ProductoService.importesVigentes(prodCod)` implementa `ProdIMax1..4` con `0` por defecto (R-005).
+- [ ] T-205 `NucleoEscrituraService`: alta/modificación/baja de maestras; detección de PK duplicada → excepción de conflicto (R-030, R-031).
+- [ ] T-206 Auditoría de `Feriado`: rellenar `FerFchReg` (server time) y `FerUsuario` en servidor (R-033).
+- [ ] T-207 `ProductoService.guardar(producto, vigencias)`: persistencia atómica raíz+hijas, unicidad de `ProdFchVig` (R-034); recálculo derivados sin persistir (R-035).
 
 ## G. Controladores REST (T-3xx)
 
@@ -70,21 +73,32 @@
 - [ ] T-306 `JurisdiccionController` (`GET /jurisdicciones`).
 - [ ] T-307 `FeriadoController` (`GET /feriados?desde&hasta`).
 - [ ] T-308 `ProductoController` (`GET /productos`, `/productos/{prodCod}`, `/productos/{prodCod}/importes-vigentes`).
-- [ ] T-309 Manejo uniforme de errores `{ code, message }` + `404` (R-023).
+- [ ] T-309 Manejo uniforme de errores `{ code, message }` + `404` (R-023) + `409` (R-031) + `400` Bean Validation (R-032).
+- [ ] T-310 `POST` de las 8 maestras (201 + `Location`; 409 PK duplicada) — R-030/R-031.
+- [ ] T-311 `PUT /provincias/{provCod}`, `/localidades/{locCod}`, `/calles/{callCod}` — R-030.
+- [ ] T-312 `PUT /caminos/{camId}`, `/areas/{areaId}`, `/jurisdicciones/{jurCod}` — R-030.
+- [ ] T-313 `PUT /feriados/{ferFecha}` con auditoría automática — R-030/R-033.
+- [ ] T-314 `PUT /productos/{prodCod}` con vigencias anidadas (P-03) — R-034.
+- [ ] T-315 `DELETE` de las 8 maestras (204 / 404) — R-030/R-031.
 
 ## H. Pruebas y verificación (T-4xx — puerta G-TEST)
 
 - [ ] T-401 `ProductoServiceTest` parametrizado para `ProdIMax1..4` (sin vigencias / pasadas / futuras / hoy).
 - [ ] T-402 `BusquedaServiceTest` para `Bus_DesLoc` y `BuscarCamino` (existente/inexistente/`Trim`).
-- [ ] T-403 Pruebas de contrato (MockMvc) para R-020…R-023 (200/404).
+- [ ] T-403 Pruebas de contrato (MockMvc) lectura para R-020…R-023 (200/404).
 - [ ] T-404 Pruebas de integración de lectura por entidad (G-DATA), marcadas para ejecutarse solo con BD.
 - [ ] T-405 Completar la **matriz de paridad** (`plan.md` §5) y adjuntar evidencia (G-TEST).
+- [ ] T-406 Pruebas de contrato escritura: ciclo crear→modificar→eliminar por entidad + duplicado (409) + payload inválido (400) — R-030…R-032.
+- [ ] T-407 `FeriadoControllerWriteIT`: auditoría automática (R-033). `ProductoControllerWriteIT`: atomicidad y unicidad de vigencias (R-034) y recálculo de derivados (R-035).
 
-## I. Web (fase 2 — T-5xx)
+## I. Web (fase 2 — T-5xx) — diseño del origen (P-01)
 
 - [ ] T-501 Scaffold `frontend/` (Angular 17+ standalone) + `HttpClient` + proxy a `/api/v1`.
-- [ ] T-502 Componente `localidad-list` (standalone, Reactive Forms, Angular Material) con filtro por provincia.
-- [ ] T-503 Prueba E2E (Playwright) de `ListadoLocalidades` contra el backend.
+- [ ] T-502 Extraer HTML/CSS/JS de los WebPanels legacy de las maestras vía MCP (`genexus_read` source) y documentar la referencia visual en `docs/`.
+- [ ] T-503 Componente `localidad-list` (standalone, Reactive Forms) con filtro por provincia.
+- [ ] T-504 Pantalla **ABM** de maestras simples (Provincia, Calles, Caminos, Áreas, Jurisdicciones) replicando el diseño del origen.
+- [ ] T-505 Pantalla **ABM** `Feriados` y `Productos` (con grilla de vigencias anidadas).
+- [ ] T-506 Prueba E2E (Playwright) de `ListadoLocalidades` + un ABM contra el backend.
 
 ## J. Cierre
 
