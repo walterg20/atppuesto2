@@ -118,8 +118,8 @@ En `model.ini`: `[MODEL 007] DataStore=Default (SQL Server)`, `CS_DBNAME=Rentas`
 
 ## 10. Observaciones y riesgos
 
-1. **Sin acceso a la BD real**: `Rentas` es remota y sin credenciales almacenadas → el esquema para la paridad (nombres físicos de tabla/columna) debe derivarse de la **metadata de la KB** (transacciones/atributos), no de un `SELECT` a la base. Validar acceso con el usuario antes de F2.
-2. **Nombres físicos legacy** (8 chars) vs. nombres lógicos actuales → riesgo de mapping incorrecto; requiere tabla de correspondencia explícita.
+1. **Acceso a la BD real resuelto (G-DATA 2026-10-16)**: `Rentas` es remota (`devmssqlatp.ecom.com.ar`); con credenciales provistas en `.env` se validó el esquema físico (ver §13). El esquema de paridad ya **no** se deriva solo de la metadata de la KB: está contrastado contra `INFORMATION_SCHEMA`.
+2. **Nombres físicos legacy** (8 chars) vs. nombres lógicos actuales → riesgo confirmado y acotado (ver §13): tablas truncadas a **8** y columnas a **10** caracteres (`FerDescripcion → FerDescrip`); requiere tabla de correspondencia explícita.
 3. **Contaminación de metadatos**: EO/SDT/Tema/Imágenes de Unanimo y plantillas mobile inflan el conteo; el alcance real de negocio es sensiblemente menor → conviene **definir el alcance migrable** antes de especificar.
 4. **Generador objetivo ya es Java** (`Default (Java)`) en el ambiente `Gen18` — alineado con el target Spring Boot.
 5. **Doble KB con el mismo nombre** (`GX_KB_ATPPuestos` en la instancia de GX18 y en la de GX15) → usar siempre `WALTERG20\SQLEXPRESS2019` para GX18.
@@ -150,5 +150,56 @@ Candidato a migrar (backend Java + frontend Angular):
 - Fuente: `genexus_read`; búsqueda cruzada: `genexus_search_source`.
 - Impacto/dependencias: `genexus_analyze mode=impact|dependencies target=<objeto>`.
 
+## 13. G-DATA — Esquema físico validado contra `Rentas` (2026-10-16)
+
+> **Puerta G-DATA** del módulo piloto `01-nucleo-datos`. Se conectó a `Rentas` con las credenciales de
+> `.env` (`sqlcmd`) y se contrastó la **metadata lógica de la KB** contra el **esquema físico real**
+> (`INFORMATION_SCHEMA.COLUMNS` / `KEY_COLUMN_USAGE` / `REFERENTIAL_CONSTRAINTS`). Fuente de autoridad
+> para el mapeo JPA: `spec.md` §4.5 (esquema físico), `plan.md` §2.2/§2.3.
+
+### 13.1 Supuestos (ASM-01…05) — veredicto
+
+| ASM | Supuesto original | Veredicto | Detalle |
+|---|---|---|---|
+| ASM-01 | El nombre físico de columna = nombre lógico del atributo. | **Matizado** | Se cumple salvo **truncado a 10 caracteres**: `FerDescripcion → FerDescrip`. El resto coincide. |
+| ASM-02 | `NUMERIC(n,0)` mapea a `smallint`/`int`/`bigint`. | **Parcialmente falso** | `Areas.AreaId` es `decimal(10,0)` → `BigDecimal`. El resto sí son `smallint`/`int`. |
+| ASM-03 | `DATE(8)` mapea a `date`. | **Falso** | `Feriados.FerFecha` y `Product1.ProdFchVig` son **`datetime`** → `LocalDateTime`. |
+| ASM-04 | `CHARACTER(n)` mapea a `varchar(n)`. | **Falso** | Es **`char(n)` fijo** (rellena con espacios → `trim` al leer). Excepciones `varchar`: `ProvNombre(40)`, `AreaEmails(255)`, `AreaRespons(100)`. |
+| ASM-05 | `DATETIME(8,5)` mapea a `datetime2`/`datetime`. | **Confirmado** | `Feriados.FerFchReg` es `datetime`. |
+
+### 13.2 Nombres físicos de tabla (truncado a 8 chars)
+
+`Provincia → PROVINCI` · `Localidades → Localida` · `Calles → CALLES` · `CAMINOS → CAMINOS` ·
+`Areas → Areas` · `Jurisdic → Jurisdic` · `Feriados → FERIADOS` · `Productos(0) → PRODUCTO` ·
+`Productos(1) → PRODUCT1`.
+
+### 13.3 Hallazgos no anticipados
+
+- **Columnas huérfanas** (existen en `Rentas`, **no** en la KB): `Areas.AreaBaja/AreaEmails/AreaAdjun/AreaRespons`;
+  `CALLES.CallAlt1/2/3`; `Localida.LocCodAfip`; `PROVINCI.ProvCodAfip`; `PRODUCTO.ProdReppa`;
+  `PRODUCT1.ProdImpu5/ProdFeLog/ProdUsu`. → El mapeo debe cubrirlas (R-036).
+- **`NOT NULL` huérfanas** (obligatorias en el alta, sin contraparte en el DTO): `AreaEmails`, `LocCodAfip`,
+  `ProvCodAfip` → default de aplicación `""`/`0`/`0`.
+- **`NOT NULL` adicionales**: `PRODUCT1.ProdImpu1/ProdImpu2`; `PRODUCTO.ProdDesc/ProdTipCal/TPPriID/ProdAnula`;
+  `FERIADOS.FerDescrip/FerFchReg/FerUsuario`.
+- **Sin `COLUMN_DEFAULT`** en ninguna columna y **sin `IDENTITY`** en las 9 tablas → la **PK viaja en el body**
+  del `POST` (R-037); duplicado → `409`.
+- **Sin FK física** `Localida → PROVINCI` (asociación solo lógica). FKs físicas hacia el piloto: únicamente
+  `Rastrillo → CALLES` y `VElectronica → AREAS`.
+- **No existe tabla de unidad de medida**: `UMedNombre` y `ProdIMax1..4` son **derivados/no persistidos**.
+
+### 13.4 Reglas nuevas derivadas
+
+- **R-036**: persistir todas las columnas legacy/huérfanas aplicando defaults `0`/`0`/`""` en el alta.
+- **R-037**: la PK se recibe en el `POST` (no autoincremental).
+
+### Cómo regenerar G-DATA (determinista)
+
+- Columnas + tipos: `SELECT ... FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME IN (...)`.
+- PK/FK/índices: `INFORMATION_SCHEMA.KEY_COLUMN_USAGE` + `REFERENTIAL_CONSTRAINTS`.
+- `NOT NULL`/defaults: `INFORMATION_SCHEMA.COLUMNS` (`IS_NULLABLE`, `COLUMN_DEFAULT`).
+- Credenciales: cargar `.env` (`DB_*`) → `sqlcmd -S "$DB_HOST,$DB_PORT" -d $DB_NAME -U $DB_USER -b -W -s '|'`.
+
 ---
 _Generado en F0 — 2026-10-15. Fuente: KB GeneXus 18 `ATPPuestos` en modo lectura._
+_Ampliado en Fase D (G-DATA) — 2026-10-16: esquema físico validado contra la BD `Rentas` (ver §13)._

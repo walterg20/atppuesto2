@@ -1,6 +1,8 @@
 # Spec — 01 Núcleo de Datos (piloto)
 
 > **Estado**: `APPROVED` — puerta **G-SPEC** aprobada el **2026-10-16** por el responsable.
+> **Enmendado (G-DATA, 2026-10-16)**: §4.3/§4.4/§4.5 y R-002/R-006/R-036/R-037 corregidos tras
+> validar el esquema físico real contra la BD `Rentas` (ver §4.5 y `docs/analisis-ATPPuestos.md`).
 > **Sintaxis**: EARS (ISO/IEC 25030). Cada requisito incluye criterio de verificación.
 > **Fuente legacy**: KB `ATPPuestos` (GeneXus **18.0.13.186702**), índice "Booting".
 > **Módulo**: `01-nucleo-datos` — **piloto** del proceso SDD.
@@ -61,6 +63,11 @@ las consumen.
 `*` = clave primaria. **Ninguna** de estas transacciones declara reglas ni eventos (verificado con
 `genexus_read` parts `Rules`/`Events`: vacías). Son tablas de **datos maestros sin lógica declarativa**.
 
+> **Nota (G-DATA 2026-10-16):** los tipos y longitudes anteriores son los **lógicos** de la KB. Los
+> **tipos y anchuras físicos** reales de `Rentas` difieren (p. ej. `char(n)` fija, `datetime`,
+> `decimal(10,0)`) y están **validados en §4.5** (fuente de autoridad para el mapeo JPA). La
+> `Productos` física es `PRODUCTO` (raíz) y `PRODUCT1` (nivel 1).
+
 #### 4.1.1 `Productos` (transacción de dos niveles)
 
 Nivel 0 (raíz) — tabla física `Producto`:
@@ -110,21 +117,88 @@ Variables tipadas: `Bus_DesLoc` → `&LocCod NUMERIC(5)`, `&LocNom CHARACTER(20)
 
 ### 4.3 Relaciones e índices
 
-- **FK**: `Localidades.ProvCod → Provincia.ProvCod` (índice automático `ILocalida` sobre `ProvCod`).
+- **FK**: `Localidades.ProvCod → Provincia.ProvCod` es una **asociación lógica** (índice `ILocalida` sobre `ProvCod`); **no existe FK física** en la BD `Rentas` (validado en G-DATA, §4.5). La integridad referencial es responsabilidad de la aplicación.
+- **FK físicas reales** hacia las tablas del piloto: solo `Rastrillo → CALLES` y `VElectronica → AREAS` (fuera del piloto).
 - **PK física**: cada tabla tiene índice único automático sobre su clave (`IProvincia`/`ProvCod`, `ILocalidades`/`LocCod`, `ICalles`/`CallCod`, `PK_CAMINOS_54DBDB6F`/`CamID`, `IAreas`/`AreaId`, `IJurisdic`/`JurCod`; `Feriados`/`FerFecha`; `Producto`/`ProdCod`; `Product1`/`ProdCod+ProdFchVig`).
 - **Nombre de tabla física**: regla observada = nombre de transacción **truncado a 8 caracteres**
   (`Localidades→Localida`, `Productos→Producto`, `Provincia→PROVINCI`). Confirmado con
   `genexus_structure get_indexes` (`result.name`).
+- **Nombre de columna física** (G-DATA, §4.5): igual al nombre lógico del atributo **truncado a 10
+  caracteres**. Caso observado: `FerDescripcion → FerDescrip`. El resto de columnas del piloto
+  coinciden con el nombre lógico.
 
-### 4.4 Supuestos de esquema (ASM) — a validar en **G-DATA**
+### 4.4 Supuestos de esquema (ASM) — **validados contra `Rentas` (G-DATA, 2026-10-16)**
 
-| ID | Supuesto | Riesgo |
-|---|---|---|
-| ASM-01 | El **nombre físico de columna** es igual al nombre lógico del atributo (`ProvCod`, `LocNom`, …). El MCP no expone nombres físicos de columna. | Medio — validar contra `Rentas`. |
-| ASM-02 | `NUMERIC(n,0)` mapea a `smallint`/`int`/`bigint` según rango (no a `decimal`). | Medio |
-| ASM-03 | `DATE(8)` mapea a `date` (no a `datetime`). | Medio |
-| ASM-04 | `CHARACTER(n)` mapea a `varchar(n)` (no a `char(n)`), salvo longitud fija declarada. | Bajo |
-| ASM-05 | `DATETIME(8,5)` mapea a `datetime2`/`datetime`. | Bajo |
+| ID | Supuesto original | Resultado | Evidencia / corrección |
+|---|---|---|---|
+| ASM-01 | El **nombre físico de columna** es igual al nombre lógico del atributo. | **Matizado** | Se cumple salvo **truncado a 10 caracteres**: `FerDescripcion → FerDescrip`. El resto coincide. |
+| ASM-02 | `NUMERIC(n,0)` mapea a `smallint`/`int`/`bigint` (no a `decimal`). | **Parcialmente falso** | `Areas.AreaId` es `decimal(10,0)` → `BigDecimal`. El resto sí son `smallint`/`int`. |
+| ASM-03 | `DATE(8)` mapea a `date` (no a `datetime`). | **Falso** | `Feriados.FerFecha` y `Product1.ProdFchVig` son **`datetime`** → `LocalDateTime`. |
+| ASM-04 | `CHARACTER(n)` mapea a `varchar(n)`. | **Falso** | Es **`char(n)` fijo** (rellena con espacios → prever `trim`). Excepciones `varchar`: `ProvNombre(40)`, `AreaEmails(255)`, `AreaRespons(100)`. |
+| ASM-05 | `DATETIME(8,5)` mapea a `datetime2`/`datetime`. | **Confirmado** | `Feriados.FerFchReg` es `datetime`. |
+
+Hallazgos adicionales (detalle en §4.5): existen **columnas legacy/huérfanas** en la BD ausentes en
+la KB; hay columnas **`NOT NULL` sin `DEFAULT`**; y **ninguna PK es `IDENTITY`** (no autoincremental).
+
+### 4.5 Esquema físico validado (G-DATA) — fuente de autoridad para el mapeo
+
+Tablas reales en `Rentas` (nombres truncados a 8 chars), con tipo físico, nulabilidad y tipo Java:
+
+| Tabla | Columna | Tipo físico | Nula | ¿En KB? | Tipo Java |
+|---|---|---|---|---|---|
+| `PROVINCI` | `ProvCod` | `smallint` | NO (PK) | sí | `Integer` |
+| | `ProvNombre` | `varchar(40)` | NO | sí | `String` |
+| | `ProvCodAfip` | `int` | **NO** | **no (legacy)** | `Integer` ← default `0` al alta |
+| `Localida` | `LocCod` | `int` | NO (PK) | sí | `Integer` |
+| | `LocNom` | `char(50)` | sí | sí | `String` (trim) |
+| | `LocNomProv` | `char(19)` | sí | sí | `String` (trim) |
+| | `LocCodPost` | `smallint` | sí | sí | `Integer` |
+| | `ProvCod` | `smallint` | sí | sí (FK lógica) | `Integer` / `@ManyToOne` |
+| | `LocCodAfip` | `int` | **NO** | **no (legacy)** | `Integer` ← default `0` al alta |
+| `CALLES` | `CallCod` | `int` | NO (PK) | sí | `Integer` |
+| | `CallNom` | `char(50)` | sí | sí | `String` (trim) |
+| | `CallAlt1/2/3` | `char(50)` | sí | **no (legacy)** | `String` |
+| `CAMINOS` | `CamID` | `char(3)` | NO (PK) | sí | `String` |
+| | `CanRuta` | `char(100)` | sí | sí | `String` (trim) |
+| `Areas` | `AreaId` | `decimal(10,0)` | NO (PK) | sí | `BigDecimal` |
+| | `AreaDesc` | `char(50)` | sí | sí | `String` (trim) |
+| | `AreaBaja` | `smallint` | sí | **no (legacy)** | `Integer` |
+| | `AreaEmails` | `varchar(255)` | **NO** | **no (legacy)** | `String` ← default `""` al alta |
+| | `AreaAdjun` | `bit` | sí | **no (legacy)** | `Boolean` |
+| | `AreaRespons` | `varchar(100)` | sí | **no (legacy)** | `String` |
+| `Jurisdic` | `JurCod` | `smallint` | NO (PK) | sí | `Integer` |
+| | `JurNom` | `char(20)` | sí | sí | `String` (trim) |
+| `FERIADOS` | `FerFecha` | `datetime` | NO (PK) | sí | `LocalDateTime` |
+| | `FerDescrip` | `char(100)` | **NO** | sí (`FerDescripcion`) | `String` (trim) |
+| | `FerFchReg` | `datetime` | **NO** | sí (auditoría) | `LocalDateTime` |
+| | `FerUsuario` | `char(10)` | **NO** | sí (auditoría) | `String` |
+| | `FerTipo` | `char(1)` | sí | sí | `String` |
+| `PRODUCTO` | `ProdCod` | `smallint` | NO (PK) | sí | `Integer` |
+| | `ProdDesc` | `char(25)` | **NO** | sí | `String` (trim) |
+| | `ProdTipCal` | `smallint` | **NO** | sí | `Integer` |
+| | `TPPriID` | `smallint` | **NO** | sí | `Integer` |
+| | `UMedNroId` | `char(3)` | sí | sí | `String` |
+| | `ProdAcop` | `char(1)` | sí | sí | `String` |
+| | `ProdReppa` | `char(1)` | sí | **no (legacy)** | `String` |
+| | `ProdAnula` | `smallint` | **NO** | sí | `Integer` |
+| `PRODUCT1` | `ProdCod` | `smallint` | NO (PK) | sí | `Integer` |
+| | `ProdFchVig` | `datetime` | NO (PK) | sí | `LocalDateTime` |
+| | `ProdImpu1/2` | `money` | **NO** | sí | `BigDecimal` |
+| | `ProdImpu3/4` | `money` | sí | sí | `BigDecimal` |
+| | `ProdImpu5` | `money` | sí | **no (legacy)** | `BigDecimal` |
+| | `ProdFeLog` | `datetime` | sí | **no (legacy)** | `LocalDateTime` |
+| | `ProdUsu` | `char(10)` | sí | **no (legacy)** | `String` |
+
+Reglas de persistencia derivadas (G-DATA):
+
+- **Sin `IDENTITY`**: ninguna PK es autoincremental → el `POST` **recibe la PK** en el body (R-037);
+  duplicado → `409` (R-031).
+- **Sin `DEFAULT`**: toda columna `NOT NULL` debe enviarse en el alta. Las legacy `NOT NULL`
+  (`ProvCodAfip`, `LocCodAfip`, `AreaEmails`) se rellenan con `0`/`0`/`""` si el cliente no las
+  provee (R-036).
+- **`char(n)` fija**: leer con `trim` para eliminar el relleno (ASM-04 / R-002).
+- **Columnas legacy**: se mapean todas (fidelidad de lectura y para no romper el `INSERT`), pero no
+  se exponen como atributos de negocio (detalle en `plan.md` §2.4).
 
 ## 5. Requisitos funcionales (EARS)
 
@@ -132,15 +206,15 @@ Variables tipadas: `Bus_DesLoc` → `&LocCod NUMERIC(5)`, `&LocNom CHARACTER(20)
 
 - **R-001 (Ubicuo)** El sistema deberá modelar las **ocho transacciones maestras** del piloto como entidades JPA mapeadas al esquema físico existente (§4.1), sin generar DDL.
   - *Verificación*: existe una entidad por transacción; `@Table(name=…)` coincide con §4.3; prueba de integración de lectura contra la BD real (G-DATA).
-- **R-002 (Ubicuo)** El sistema deberá preservar **claves primarias** y **tipos/longitudes** originales de cada atributo (§4.1).
-  - *Verificación*: tabla de correspondencia atributo↔columna↔tipo en `plan.md` §2; una prueba por entidad.
+- **R-002 (Ubicuo)** El sistema deberá preservar **claves primarias**, **tipos y longitudes** originales de cada atributo (§4.5), aplicando `trim` a las columnas `char(n)` para eliminar el relleno.
+  - *Verificación*: tabla de correspondencia atributo↔columna↔tipo en `plan.md` §2; una prueba por entidad (incluye lectura de una columna `char(n)`).
 - **R-003 (Ubicuo)** El sistema deberá modelar la relación `Localidades → Provincia` como **asociación** sobre `ProvCod` (clave foránea), sin exponerla como texto libre.
   - *Verificación*: consulta de localidad devuelve la provincia asociada; prueba con `LocCod` inexistente.
 - **R-004 (Ubicuo)** El sistema deberá modelar `Productos` en **dos niveles** (`Producto` raíz y `Product1` vigencias) con clave compuesta `ProdCod+ProdFchVig`, preservando la carga de vigencias junto al producto.
   - *Verificación*: un producto con N vigencias persiste y recupera N filas hijas en orden por `ProdFchVig`.
 - **R-005 (Ubicuo)** El sistema deberá calcular los importes vigentes `ProdIMax1..4` como atributos **derivados** (§4.1.1), evaluados contra la fecha del servidor, retornando `0` cuando no exista vigencia aplicable.
   - *Verificación*: pruebas parametrizadas con (a) sin vigencias → `0`, (b) vigencias pasadas/futuras → toma la más reciente `<= hoy`, (c) vigencia exactamente hoy.
-- **R-006 (Ubicuo)** El sistema deberá tratar `Feriados` como tabla de fecha clave (`FerFecha`) con campos de auditoría (`FerFchReg`, `FerUsuario`) y `FerTipo`.
+- **R-006 (Ubicuo)** El sistema deberá tratar `Feriados` como tabla de fecha clave (`FerFecha`, física `datetime`) con campos de auditoría (`FerFchReg`, `FerUsuario`) y `FerTipo`, mapeando el atributo lógico `FerDescripcion` a la columna física truncada `FerDescrip` (§4.5).
   - *Verificación*: consulta por rango de fechas; prueba de unicidad de `FerFecha`.
 
 ### 5.2 Procedimientos de búsqueda
@@ -175,6 +249,10 @@ Variables tipadas: `Bus_DesLoc` → `&LocCod NUMERIC(5)`, `&LocNom CHARACTER(20)
   - *Verificación*: prueba de alta de producto con N vigencias y de duplicado de vigencia (409).
 - **R-035 (Ubicuo)** El sistema deberá recalcular `ProdIMax1..4` **derivados** (R-005) tras cada escritura de vigencias, sin persistirlos.
   - *Verificación*: tras agregar una vigencia más reciente, `GET /productos/{prodCod}/importes-vigentes` refleja el nuevo valor.
+- **R-036 (Ubicuo)** El sistema deberá **mapear y persistir las columnas legacy** del esquema físico (§4.5) aunque no existan en la KB, para garantizar la fidelidad de lectura y que el alta no falle por columnas `NOT NULL` sin `DEFAULT`; en el alta, si el cliente no las envía, aplicará los valores por defecto `0` (`ProvCodAfip`, `LocCodAfip`) y `""` (`AreaEmails`).
+  - *Verificación*: alta de `Provincia`/`Localidad`/`Area` sin las columnas legacy → persiste con el default; la lectura devuelve el registro.
+- **R-037 (Ubicuo)** El sistema deberá **recibir la clave primaria** en el cuerpo del alta (no hay columnas `IDENTITY` en el esquema), validando su unicidad (R-031).
+  - *Verificación*: `POST` sin PK → `400`; `POST` con PK existente → `409`.
 
 ## 6. Requisitos de proceso y no funcionales
 
@@ -183,18 +261,18 @@ Variables tipadas: `Bus_DesLoc` → `&LocCod NUMERIC(5)`, `&LocNom CHARACTER(20)
 - **R-202 (Ubicuo)** El sistema deberá declarar la **matriz de paridad** legacy↔nuevo↔prueba (ver `plan.md` §5) antes de la puerta G-TEST.
   - *Verificación*: matriz completa y trazable.
 - **R-203 (Comportamiento no deseado)** SI no hay acceso a la BD `Rentas`, ENTONCES el sistema deberá derivar el esquema de la KB y **marcar cada supuesto** (§4.4).
-  - *Verificación*: entidades anotadas con la transacción/atributo origen; ASM-01…05 listados.
+  - *Verificación*: entidades anotadas con la transacción/atributo origen; ASM-01…05 resueltos (validados contra `Rentas` en G-DATA).
 - **R-204 (Ubicuo)** El sistema deberá tomar la cadena de conexión de **variables de entorno**, sin credenciales en el repositorio.
   - *Verificación*: `application.yml` referencia `${DB_*}`; escaneo sin secretos.
-- **R-205 (Ubicuo)** El mapeo deberá respetar la **regla de nombres físicos de 8 caracteres** de las tablas legacy.
-  - *Verificación*: revisión de `@Table(name)` contra §4.3.
+- **R-205 (Ubicuo)** El mapeo deberá respetar las **reglas de nombre físico legacy**: tablas truncadas a 8 caracteres y columnas a 10 caracteres (§4.3/§4.5).
+  - *Verificación*: revisión de `@Table(name)`/`@Column(name)` contra §4.3 y §4.5.
 
 ## 7. Pendientes de decisión (R-106) — **resueltos 2026-10-16**
 
 | ID | Pendiente | Dueño | Resolución |
 |---|---|---|---|
 | P-01 | ¿El piloto incluye ABM de escritura o solo lectura? | Responsable | **ABM completo** (R-030…R-035). Fase 2: pantallas ABM replicando CSS/JS/HTML del origen GeneXus. |
-| P-02 | Confirmación de ASM-01…05 contra la BD `Rentas`. | Responsable | **Aprobado** — credenciales provistas en `.env`; validación en puerta G-DATA. |
+| P-02 | Confirmación de ASM-01…05 contra la BD `Rentas`. | Responsable | **Resuelto (G-DATA, 2026-10-16)** — ASM validados/corregidos contra `Rentas`; ver §4.4/§4.5. |
 | P-03 | Formato del endpoint de `productos` con vigencias (anidado vs. plano). | Analista + Responsable | **Anidado**: `ProductoDto.vigencias[]` (fiel al nivel 1 de GeneXus, 1 viaja por alta/modificación). |
 
 ## 8. Criterios de aceptación
@@ -202,7 +280,7 @@ Variables tipadas: `Bus_DesLoc` → `&LocCod NUMERIC(5)`, `&LocNom CHARACTER(20)
 - [ ] R-001…R-006 implementados con prueba por entidad.
 - [ ] R-010, R-011 con equivalencia verificada contra la lógica `For Each` original.
 - [ ] R-020…R-023 con pruebas de contrato (lectura).
-- [ ] R-030…R-035 con pruebas de contrato (escritura: 201/400/404/409) y ciclo ABM por entidad.
-- [ ] R-201…R-205 verificados; ASM-01…05 validados o marcados.
+- [ ] R-030…R-037 con pruebas de contrato (escritura: 201/400/404/409) y ciclo ABM por entidad.
+- [ ] R-201…R-205 verificados; **ASM-01…05 validados** (G-DATA 2026-10-16, ver §4.4/§4.5).
 - [ ] Matriz de paridad (`plan.md` §5) completa, incluyendo filas de escritura.
 - [ ] Suite verde (G-TEST) y sin secretos (G-SEC).

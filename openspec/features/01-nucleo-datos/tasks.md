@@ -13,7 +13,7 @@
 - [x] A.4 Obtener el **nombre físico de tabla** de cada transacción (`get_indexes` → `result.name`).
 - [x] A.5 Obtener índices/PK/FK de las 8 tablas.
 - [x] A.6 Verificar consumidores (`impact`): `Bus_DesLoc`←`F2276`, `BuscarCamino`←`CodigoBarra`.
-- [x] A.7 Redactar `spec.md` en EARS (R-001…R-006, R-010/R-011, R-020…R-023, **R-030…R-035**, R-201…R-205). *(2026-10-16)*
+- [x] A.7 Redactar `spec.md` en EARS (R-001…R-006, R-010/R-011, R-020…R-023, **R-030…R-037**, R-201…R-205). *(2026-10-16)*
 - [x] A.8 Redactar `plan.md` (mapeo JPA + contratos lectura/escritura + matriz de paridad). *(2026-10-16)*
 - [x] A.9 Redactar `tasks.md`. *(2026-10-16)*
 - [x] A.10 Revisar los tres archivos contra la extracción de la KB y resolver P-01…P-03. *(2026-10-16)*
@@ -24,13 +24,13 @@
 - [x] B.2 Marcar `spec.md`/`plan.md`/`tasks.md` como `APPROVED` y registrar la fecha. *(2026-10-16)*
 - [x] B.3 Registrar la decisión en `.engram/` (`mem_save`, tipo `decision`). *(2026-10-16)*
 
-## C. Validación de esquema (puerta G-DATA)
+## C. Validación de esquema (puerta G-DATA) — *completado 2026-10-16*
 
-- [ ] C.1 Confirmar credenciales de `Rentas` en `.env` (`DB_USER`/`DB_PASSWORD`).
-- [ ] C.2 **ASM-01**: validar el nombre físico real de cada columna (`INFORMATION_SCHEMA.COLUMNS`).
-- [ ] C.3 **ASM-02/03/05**: validar tipos reales (`NUMERIC`→`smallint`/`int`/`bigint`; `DATE`→`date`; `DATETIME`→`datetime2`).
-- [ ] C.4 **ASM-04**: validar `varchar` vs. `char` en `CHARACTER(n)`.
-- [ ] C.5 Ajustar las entidades si difieren; registrar hallazgos en `docs/analisis-ATPPuestos.md`.
+- [x] C.1 Confirmar credenciales de `Rentas` en `.env` (`DB_USER`/`DB_PASSWORD`). *(conexión OK vía `sqlcmd`)*
+- [x] C.2 **ASM-01**: validar el nombre físico real de cada columna (`INFORMATION_SCHEMA.COLUMNS`). *(→ nombre lógico truncado a 10 chars; `FerDescripcion→FerDescrip`)*
+- [x] C.3 **ASM-02/03/05**: validar tipos reales. *(→ `Area.AreaId decimal(10,0)`; `FerFecha`/`ProdFchVig` `datetime`; `FerFchReg datetime`)*
+- [x] C.4 **ASM-04**: validar `varchar` vs. `char` en `CHARACTER(n)`. *(→ `char(n)` fijo salvo `ProvNombre`, `AreaEmails`, `AreaRespons`)*
+- [x] C.5 Ajustar `spec.md` (§4.3/§4.4/§4.5, R-002/R-006/R-036/R-037), `plan.md` (§2.2/§2.3/§3.3/§5/§6) y registrar hallazgos en `docs/analisis-ATPPuestos.md`. *(columnas legacy, sin `IDENTITY`, sin `DEFAULT`, FK física ausente)*
 
 ## D. Scaffold backend (T-0xx)
 
@@ -42,15 +42,15 @@
 
 ## E. Entidades y repositorios (T-1xx)
 
-- [ ] T-101 Entidad `Provincia` → `@Table(name="PROVINCI")` (R-001, R-002, R-205).
-- [ ] T-102 Entidad `Localidad` → `@Table(name="Localida")` + `@ManyToOne` `Provincia` sobre `ProvCod` (R-003).
-- [ ] T-103 Entidad `Calle` → `@Table(name="Calles")`.
+- [ ] T-101 Entidad `Provincia` → `@Table(name="PROVINCI")`; incluir columnas legacy `ProvCodAfip` (`@Column(nullable=false)`, default `0`) (R-001, R-002, R-036, R-205).
+- [ ] T-102 Entidad `Localidad` → `@Table(name="Localida")` + `@ManyToOne` `Provincia` sobre `ProvCod` (asociación lógica, sin FK física); incluir `LocCodAfip` legacy (R-003, R-036).
+- [ ] T-103 Entidad `Calle` → `@Table(name="CALLES")` + legacy `CallAlt1/2/3`.
 - [ ] T-104 Entidad `Camino` → `@Table(name="CAMINOS")`.
-- [ ] T-105 Entidad `Area` → `@Table(name="Areas")` (`AreaId` → `Long`).
+- [ ] T-105 Entidad `Area` → `@Table(name="Areas")` (**`AreaId` → `BigDecimal`**, `decimal(10,0)`) + legacy `AreaBaja/AreaEmails(NOT NULL)/AreaAdjun/AreaRespons` (R-036).
 - [ ] T-106 Entidad `Jurisdiccion` → `@Table(name="Jurisdic")`.
-- [ ] T-107 Entidad `Feriado` → `@Table(name="Feriados")` (PK `FerFecha`; auditoría).
-- [ ] T-108 Entidad `Producto` → `@Table(name="Producto")` + `@OneToMany` a `ProductoVigencia` (R-004).
-- [ ] T-109 Entidad `ProductoVigencia` → `@Table(name="Product1")` con `@IdClass` (`ProdCod`+`ProdFchVig`).
+- [ ] T-107 Entidad `Feriado` → `@Table(name="FERIADOS")` (PK `FerFecha` `LocalDateTime`; `FerDescripcion`→`@Column(name="FerDescrip")`; auditoría `NOT NULL`).
+- [ ] T-108 Entidad `Producto` → `@Table(name="PRODUCTO")` + `@OneToMany` a `ProductoVigencia` (R-004); legacy `ProdReppa`; `ProdIMax*`/`UMedNombre` `@Transient`.
+- [ ] T-109 Entidad `ProductoVigencia` → `@Table(name="PRODUCT1")` con `@IdClass` (`ProdCod`+`ProdFchVig` `LocalDateTime`); `ProdImpu1/2` `NOT NULL`; legacy `ProdImpu5/ProdFeLog/ProdUsu`.
 - [ ] T-110 Repositorios Spring Data para las 9 entidades (incl. `ProductoVigenciaRepository.findVigenteHastaHoy`).
 
 ## F. Servicios (T-2xx)
@@ -59,7 +59,7 @@
 - [ ] T-202 `BusquedaService.busDesLoc(locCod)` equivalente a `Bus_DesLoc` (R-010).
 - [ ] T-203 `BusquedaService.buscarCamino(camID)` con `TRIM(CanRuta)` (R-011).
 - [ ] T-204 `ProductoService.importesVigentes(prodCod)` implementa `ProdIMax1..4` con `0` por defecto (R-005).
-- [ ] T-205 `NucleoEscrituraService`: alta/modificación/baja de maestras; detección de PK duplicada → excepción de conflicto (R-030, R-031).
+- [ ] T-205 `NucleoEscrituraService`: alta/modificación/baja de maestras; **PK provista en el body** (sin `IDENTITY`) y detección de PK duplicada → excepción de conflicto (R-030, R-031, R-037); aplicación de defaults a columnas legacy `NOT NULL` (`0`/`\"\"`) (R-036).
 - [ ] T-206 Auditoría de `Feriado`: rellenar `FerFchReg` (server time) y `FerUsuario` en servidor (R-033).
 - [ ] T-207 `ProductoService.guardar(producto, vigencias)`: persistencia atómica raíz+hijas, unicidad de `ProdFchVig` (R-034); recálculo derivados sin persistir (R-035).
 
@@ -74,7 +74,8 @@
 - [ ] T-307 `FeriadoController` (`GET /feriados?desde&hasta`).
 - [ ] T-308 `ProductoController` (`GET /productos`, `/productos/{prodCod}`, `/productos/{prodCod}/importes-vigentes`).
 - [ ] T-309 Manejo uniforme de errores `{ code, message }` + `404` (R-023) + `409` (R-031) + `400` Bean Validation (R-032).
-- [ ] T-310 `POST` de las 8 maestras (201 + `Location`; 409 PK duplicada) — R-030/R-031.
+- [ ] T-310 `POST` de las 8 maestras (201 + `Location`; **PK requerida en el body** R-037; 409 PK duplicada) — R-030/R-031/R-037.
+- [ ] T-310b Sembrar defaults de columnas legacy `NOT NULL` en el alta (`ProvCodAfip=0`, `LocCodAfip=0`, `AreaEmails=\"\"`) — R-036.
 - [ ] T-311 `PUT /provincias/{provCod}`, `/localidades/{locCod}`, `/calles/{callCod}` — R-030.
 - [ ] T-312 `PUT /caminos/{camId}`, `/areas/{areaId}`, `/jurisdicciones/{jurCod}` — R-030.
 - [ ] T-313 `PUT /feriados/{ferFecha}` con auditoría automática — R-030/R-033.
@@ -102,6 +103,6 @@
 
 ## J. Cierre
 
-- [ ] J.1 Actualizar `docs/analisis-ATPPuestos.md` con los hallazgos de G-DATA.
+- [x] J.1 Actualizar `docs/analisis-ATPPuestos.md` con los hallazgos de G-DATA. *(2026-10-16)*
 - [ ] J.2 `mem_session_summary` + `engram sync`.
 - [ ] J.3 Marcar `01-nucleo-datos` como cerrado y habilitar el módulo `02-personas`.

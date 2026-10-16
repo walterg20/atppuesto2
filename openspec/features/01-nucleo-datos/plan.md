@@ -31,8 +31,9 @@ backend/src/main/java/ar/com/atp/puestos/
 
 ## 2. Mapeo físico ↔ JPA
 
-> **Nombre de tabla** = autoritativo (obtenido de la KB). **Nombre de columna** = ASM-01
-> (supuesto: igual al nombre lógico; validar en **G-DATA**). Tipos Java según ASM-02…05.
+> **Esquema físico validado (G-DATA, 2026-10-16)** — ver `spec.md` §4.5 (fuente de autoridad).
+> Nombre de tabla = transacción truncada a 8 chars; **nombre de columna = nombre lógico truncado a
+> 10 chars** (`FerDescripcion → FerDescrip`). Tipos Java según el tipo físico real (ASM-01…05 resueltos).
 
 ### 2.1 Tablas → entidades
 
@@ -40,61 +41,91 @@ backend/src/main/java/ar/com/atp/puestos/
 |---|---|---|---|
 | `Provincia` | `PROVINCI` | `Provincia` | `ProvCod` |
 | `Localidades` | `Localida` | `Localidad` | `LocCod` |
-| `Calles` | `Calles` | `Calle` | `CallCod` |
+| `Calles` | `CALLES` | `Calle` | `CallCod` |
 | `CAMINOS` | `CAMINOS` | `Camino` | `CamID` |
 | `Areas` | `Areas` | `Area` | `AreaId` |
 | `Jurisdic` | `Jurisdic` | `Jurisdiccion` | `JurCod` |
-| `Feriados` | `Feriados` | `Feriado` | `FerFecha` |
-| `Productos` (raíz) | `Producto` | `Producto` | `ProdCod` |
-| `Productos` (nivel 1) | `Product1` | `ProductoVigencia` | `ProdCod` + `ProdFchVig` |
+| `Feriados` | `FERIADOS` | `Feriado` | `FerFecha` |
+| `Productos` (raíz) | `PRODUCTO` | `Producto` | `ProdCod` |
+| `Productos` (nivel 1) | `PRODUCT1` | `ProductoVigencia` | `ProdCod` + `ProdFchVig` |
 
-### 2.2 Atributos → columnas y tipos Java
+### 2.2 Atributos → columnas y tipos Java (según tipo físico validado, §4.5)
 
-| Entidad | Atributo lógico | Columna (ASM-01) | Tipo SQL (ASM) | Tipo Java |
+| Entidad | Atributo lógico | Columna (física) | Tipo SQL real | Tipo Java |
 |---|---|---|---|---|
-| `Provincia` | `ProvCod` | `ProvCod` | NUMERIC(4,0) → `int`/`smallint` | `Integer` |
-| | `ProvNombre` | `ProvNombre` | VARCHAR(40) | `String` |
-| `Localidad` | `LocCod` | `LocCod` | NUMERIC(5,0) → `int` | `Integer` |
-| | `LocNom` | `LocNom` | VARCHAR(20) | `String` |
-| | `LocNomProv` | `LocNomProv` | VARCHAR(15) | `String` |
-| | `LocCodPost` | `LocCodPost` | NUMERIC(4,0) | `Integer` |
-| | `ProvCod` (FK) | `ProvCod` | NUMERIC(4,0) | `Provincia` (asociación) |
-| `Calle` | `CallCod` | `CallCod` | NUMERIC(4,0) | `Integer` |
-| | `CallNom` | `CallNom` | VARCHAR(22) | `String` |
-| `Camino` | `CamID` | `CamID` | VARCHAR(3) | `String` |
-| | `CanRuta` | `CanRuta` | VARCHAR(100) | `String` |
-| `Area` | `AreaId` | `AreaId` | NUMERIC(10,0) → `bigint` | `Long` |
-| | `AreaDesc` | `AreaDesc` | VARCHAR(50) | `String` |
-| `Jurisdiccion` | `JurCod` | `JurCod` | NUMERIC(3,0) | `Integer` |
-| | `JurNom` | `JurNom` | VARCHAR(20) | `String` |
-| `Feriado` | `FerFecha` | `FerFecha` | DATE(8) | `LocalDate` |
-| | `FerDescripcion` | `FerDescripcion` | VARCHAR(100) | `String` |
-| | `FerFchReg` | `FerFchReg` | DATETIME(8,5) | `LocalDateTime` |
-| | `FerUsuario` | `FerUsuario` | VARCHAR(10) | `String` |
-| | `FerTipo` | `FerTipo` | VARCHAR(1) | `String` |
-| `Producto` | `ProdCod` | `ProdCod` | NUMERIC(3,0) | `Integer` |
-| | `ProdDesc` | `ProdDesc` | VARCHAR(25) | `String` |
-| | `ProdTipCal` | `ProdTipCal` | NUMERIC(1,0) | `Integer` |
-| | `TPPriID` | `TPPriID` | NUMERIC(1,0) | `Integer` |
+| `Provincia` | `ProvCod` | `ProvCod` | `smallint` | `Integer` |
+| | `ProvNombre` | `ProvNombre` | `varchar(40)` | `String` |
+| | *(legacy)* | `ProvCodAfip` | `int NOT NULL` | `Integer` (default `0`) |
+| `Localidad` | `LocCod` | `LocCod` | `int` | `Integer` |
+| | `LocNom` | `LocNom` | `char(50)` | `String` (trim) |
+| | `LocNomProv` | `LocNomProv` | `char(19)` | `String` (trim) |
+| | `LocCodPost` | `LocCodPost` | `smallint` | `Integer` |
+| | `ProvCod` (FK lógica) | `ProvCod` | `smallint` | `@ManyToOne Provincia` |
+| | *(legacy)* | `LocCodAfip` | `int NOT NULL` | `Integer` (default `0`) |
+| `Calle` | `CallCod` | `CallCod` | `int` | `Integer` |
+| | `CallNom` | `CallNom` | `char(50)` | `String` (trim) |
+| | *(legacy)* | `CallAlt1/2/3` | `char(50)` | `String` |
+| `Camino` | `CamID` | `CamID` | `char(3)` | `String` |
+| | `CanRuta` | `CanRuta` | `char(100)` | `String` (trim) |
+| `Area` | `AreaId` | `AreaId` | **`decimal(10,0)`** | `BigDecimal` |
+| | `AreaDesc` | `AreaDesc` | `char(50)` | `String` (trim) |
+| | *(legacy)* | `AreaBaja` | `smallint` | `Integer` |
+| | *(legacy)* | `AreaEmails` | `varchar(255) NOT NULL` | `String` (default `""`) |
+| | *(legacy)* | `AreaAdjun` | `bit` | `Boolean` |
+| | *(legacy)* | `AreaRespons` | `varchar(100)` | `String` |
+| `Jurisdiccion` | `JurCod` | `JurCod` | `smallint` | `Integer` |
+| | `JurNom` | `JurNom` | `char(20)` | `String` (trim) |
+| `Feriado` | `FerFecha` | `FerFecha` | **`datetime`** | `LocalDateTime` |
+| | `FerDescripcion` | **`FerDescrip`** | `char(100) NOT NULL` | `String` (trim) |
+| | `FerFchReg` | `FerFchReg` | `datetime NOT NULL` | `LocalDateTime` (auditoría) |
+| | `FerUsuario` | `FerUsuario` | `char(10) NOT NULL` | `String` (auditoría) |
+| | `FerTipo` | `FerTipo` | `char(1)` | `String` |
+| `Producto` | `ProdCod` | `ProdCod` | `smallint` | `Integer` |
+| | `ProdDesc` | `ProdDesc` | `char(25) NOT NULL` | `String` (trim) |
+| | `ProdTipCal` | `ProdTipCal` | `smallint NOT NULL` | `Integer` |
+| | `TPPriID` | `TPPriID` | `smallint NOT NULL` | `Integer` |
 | | `ProdIMax1..4` | (no persistido) | — | derivado (`BigDecimal`) |
-| | `UMedNroId` | `UMedNroId` | VARCHAR(3) | `String` |
-| | `UMedNombre` | `UMedNombre` | VARCHAR(40) | `String` |
-| | `ProdAcop` | `ProdAcop` | VARCHAR(1) | `String` |
-| | `ProdAnula` | `ProdAnula` | NUMERIC(1,0) | `Integer` |
-| `ProductoVigencia` | `ProdCod` | `ProdCod` | NUMERIC(3,0) | (parte de PK) |
-| | `ProdFchVig` | `ProdFchVig` | DATE(8) | `LocalDate` |
-| | `ProdImpu1..4` | `ProdImpu1..4` | NUMERIC(12,2) | `BigDecimal` |
+| | `UMedNroId` | `UMedNroId` | `char(3)` | `String` |
+| | `UMedNombre` | (no persistido) | — | derivado (`String`, `@Transient`) |
+| | `ProdAcop` | `ProdAcop` | `char(1)` | `String` |
+| | *(legacy)* | `ProdReppa` | `char(1)` | `String` |
+| | `ProdAnula` | `ProdAnula` | `smallint NOT NULL` | `Integer` |
+| `ProductoVigencia` | `ProdCod` | `ProdCod` | `smallint` | (parte de PK) |
+| | `ProdFchVig` | `ProdFchVig` | **`datetime`** | `LocalDateTime` |
+| | `ProdImpu1..4` | `ProdImpu1..4` | `money` (1/2 `NOT NULL`) | `BigDecimal` |
+| | *(legacy)* | `ProdImpu5` | `money` | `BigDecimal` |
+| | *(legacy)* | `ProdFeLog` | `datetime` | `LocalDateTime` |
+| | *(legacy)* | `ProdUsu` | `char(10)` | `String` |
 
 **Notas de mapeo:**
 
 - `ProdIMax1..4` **no se persisten**: son fórmulas GeneXus (campo calculado). Se exponen como
-  propiedades derivadas (`@Transient`/método del servicio) calculadas desde las vigencias (§2.3).
-- `Localidad.ProvCod` se mapea como `@ManyToOne` a `Provincia` (columna `ProvCod`), para no duplicar
-  el texto `LocNomProv` como fuente de verdad de la relación.
-- `Area.AreaId` NUMERIC(10,0) → `Long` (rango > `int`).
-- Las longitudes de `CHARACTER(n)` se documentan como `length=n`; el DDL real no se genera (R-205/R-001).
+  propiedades derivadas (`@Transient`/método del servicio) calculadas desde las vigencias (§2.4).
+- `UMedNombre` es un atributo **derivado** en la KB (no existe columna física): `@Transient`.
+- `Localidad.ProvCod` se mapea como `@ManyToOne` a `Provincia` (columna `ProvCod`), como
+  **asociación lógica** — no hay FK física en la BD (spec §4.3); la integridad la garantiza la app.
+- `Area.AreaId` es `decimal(10,0)` → `BigDecimal` (su rango excede `int`).
+- `Feriado.FerFecha` y `ProductoVigencia.ProdFchVig` son `datetime` → `LocalDateTime` (ASM-03).
+- Las longitudes de `@Size` en los DTO (§3.3) siguen la **longitud lógica** de la KB (regla de
+  negocio); las columnas físicas son `char(n)` más anchas y se documentan en §2.3.
 
-### 2.3 Semántica de las fórmulas (`ProdIMax*`)
+### 2.3 Columnas legacy y valores por defecto (G-DATA)
+
+Las columnas siguientes existen en `Rentas` pero **no** en la KB. Se mapean todas (para lectura fiel
+y porque varias son `NOT NULL` y romperían el `INSERT`), con tipo Java según §4.5:
+
+- `Provincia.ProvCodAfip`, `Localidad.LocCodAfip` → `@Column(nullable = false)`; en el alta, si el
+  cliente no los envía, el servicio aplica `0` (R-036).
+- `Area.AreaEmails` (`NOT NULL`) → default `""`; `Area.AreaBaja`, `Area.AreaAdjun`, `Area.AreaRespons`
+  → opcionales (R-036).
+- `Calle.CallAlt1/2/3`, `Producto.ProdReppa`, `ProductoVigencia.ProdImpu5/ProdFeLog/ProdUsu`
+  → opcionales, se persisten `null`/valor entrante.
+- Ninguna PK es `IDENTITY`: el `POST` recibe la PK en el body (R-037).
+
+**Anchuras físicas vs. lógicas (para longitud de columna, no de validación):** `LocNom`
+`char(50)`/lógico 20, `LocNomProv` `char(19)`/lógico 15, `CallNom` `char(50)`/lógico 22.
+
+### 2.4 Semántica de las fórmulas (`ProdIMax*`)
 
 Equivalente SQL de `ProdIMax1` (idéntico para 2..4 cambiando `ProdImpu n`):
 
@@ -159,11 +190,11 @@ record LocalidadDto(Integer locCod, String locNom, Integer locCodPost,
                     Integer provCod, String provNombre) {}
 record CalleDto(Integer callCod, String callNom) {}
 record CaminoDto(String camID, String canRuta) {}
-record AreaDto(Long areaId, String areaDesc) {}
+record AreaDto(BigDecimal areaId, String areaDesc) {}
 record JurisdiccionDto(Integer jurCod, String jurNom) {}
-record FeriadoDto(LocalDate ferFecha, String ferDescripcion, String ferTipo,
+record FeriadoDto(LocalDateTime ferFecha, String ferDescripcion, String ferTipo,
                   LocalDateTime ferFchReg, String ferUsuario) {}
-record ProductoVigenciaDto(LocalDate prodFchVig, BigDecimal prodImpu1,
+record ProductoVigenciaDto(LocalDateTime prodFchVig, BigDecimal prodImpu1,
                            BigDecimal prodImpu2, BigDecimal prodImpu3, BigDecimal prodImpu4) {}
 record ProductoDto(Integer prodCod, String prodDesc, Integer prodTipCal, Integer tpPriID,
                    String uMedNroId, String uMedNombre, String prodAcop, Integer prodAnula,
@@ -182,11 +213,11 @@ record LocalidadEscrituraDto(@NotNull Integer locCod, @NotBlank @Size(max = 20) 
 record CalleEscrituraDto(@NotNull Integer callCod, @NotBlank @Size(max = 22) String callNom) {}
 record CaminoEscrituraDto(@NotBlank @Size(max = 3) String camID,
                           @Size(max = 100) String canRuta) {}
-record AreaEscrituraDto(@NotNull Long areaId, @NotBlank @Size(max = 50) String areaDesc) {}
+record AreaEscrituraDto(@NotNull BigDecimal areaId, @NotBlank @Size(max = 50) String areaDesc) {}
 record JurisdiccionEscrituraDto(@NotNull Integer jurCod, @NotBlank @Size(max = 20) String jurNom) {}
-record FeriadoEscrituraDto(@NotNull LocalDate ferFecha, @NotBlank @Size(max = 100) String ferDescripcion,
+record FeriadoEscrituraDto(@NotNull LocalDateTime ferFecha, @NotBlank @Size(max = 100) String ferDescripcion,
                            @Size(max = 1) String ferTipo) {}   // auditoría se rellena (R-033)
-record ProductoVigenciaEscrituraDto(@NotNull LocalDate prodFchVig, @NotNull BigDecimal prodImpu1,
+record ProductoVigenciaEscrituraDto(@NotNull LocalDateTime prodFchVig, @NotNull BigDecimal prodImpu1,
                                     @NotNull BigDecimal prodImpu2, @NotNull BigDecimal prodImpu3,
                                     @NotNull BigDecimal prodImpu4) {}
 record ProductoEscrituraDto(@NotNull Integer prodCod, @NotBlank @Size(max = 25) String prodDesc,
@@ -195,6 +226,17 @@ record ProductoEscrituraDto(@NotNull Integer prodCod, @NotBlank @Size(max = 25) 
                             Integer prodAnula,
                             @Valid @NotNull List<ProductoVigenciaEscrituraDto> vigencias) {}
 ```
+
+**Notas de escritura (G-DATA):**
+
+- La **PK viaja en el body** del `POST` (no hay columnas `IDENTITY` en `Rentas`, R-037); su unicidad
+  se valida antes de insertar (duplicado → `409`, R-031).
+- Las columnas **legacy `NOT NULL`** (`Provincia.ProvCodAfip`, `Localidad.LocCodAfip`,
+  `Area.AreaEmails`) **no** forman parte del DTO: el servicio aplica sus defaults `0`/`0`/`\"\"` en el
+  alta (R-036, plan §2.3).
+- `Feriado` recalcula auditoría en servidor (`FerFchReg` = ahora, `FerUsuario` = usuario) aunque el
+  DTO reciba `ferFchReg`/`ferUsuario` por compatibilidad de lectura (R-033).
+- Tipos físicos: `Areas.AreaId` es `BigDecimal`; `FerFecha`/`ProdFchVig` son `LocalDateTime` (§2.2).
 
 ## 4. Componentes a construir
 
@@ -226,21 +268,26 @@ record ProductoEscrituraDto(@NotNull Integer prodCod, @NotBlank @Size(max = 25) 
 | ABM escritura 8 maestras (`Commit`/`Delete` legacy) | R-030, R-031, R-032 | `*ControllerWriteIT` (MockMvc, 201/400/404/409) |
 | `Feriados` auditoría (`FerFchReg`, `FerUsuario`) | R-033 | `FeriadoControllerWriteIT` |
 | `Productos` nivel 0 + nivel 1 atómico | R-034, R-035 | `ProductoControllerWriteIT` |
+| Columnas **legacy** sin contraparte en la KB (`ProvCodAfip`, `LocCodAfip`, `AreaEmails`, `CallAlt1/2/3`, `ProdReppa`, `ProdImpu5`, `ProdFeLog`, `ProdUsu`) | R-036 | `*RepositoryIT` (defaults `0`/`\"\"` en alta, lectura fiel) |
+| PK **provista por el cliente** (sin `IDENTITY` en `Rentas`) | R-037 | `*ControllerWriteIT` (sin PK → 400; PK duplicada → 409) |
+| Columna física truncada `FerDescripcion → FerDescrip` (ASM-01) | R-205 | `FeriadoRepositoryIT` (`@Column(name = \"FerDescrip\")`) |
 
 ## 6. Riesgos y mitigaciones
 
-| Riesgo | Mitigación |
-|---|---|
-| Nombre físico de columna desconocido (ASM-01) | Validar contra `Rentas` en G-DATA; ajustar `@Column` sin cambiar el código de negocio. |
-| Mapeo de tipos NUMERIC/DATE (ASM-02…05) | Prueba de lectura real por entidad; ajustar según `INFORMATION_SCHEMA`. |
-| Fórmulas `max(...)` malinterpretadas | Semántica documentada (§2.3) con pruebas de borde; revisar con el responsable. |
-| `Productos` de dos niveles | Carga explícita de vigencias + orden por `ProdFchVig`; prueba con N vigencias. |
-| Colisión de nombre `Feriados` (transacción vs. carpeta) | Usar `type: 'Transaction'` explícito en las consultas MCP. |
+| Riesgo | Estado | Mitigación / resultado |
+|---|---|---|
+| Nombre físico de columna desconocido (ASM-01) | **Resuelto** (G-DATA) | Validado: columna = nombre lógico truncado a **10 chars** (`FerDescripcion → FerDescrip`). Mapear con `@Column(name=...)` explícito. |
+| Mapeo de tipos NUMERIC/DATE (ASM-02…05) | **Resuelto** (G-DATA) | ASM-02 parcialmente falso (`Area.AreaId decimal(10,0)` → `BigDecimal`); ASM-03 falso (`datetime`); ASM-04 falso (`char(n)`); ASM-05 confirmado. Ver `spec.md` §4.5. |
+| Columnas legacy/no-KB y `NOT NULL` sin `DEFAULT` | **Resuelto** (G-DATA) | Mapear todas las columnas (R-036); aplicar defaults `0`/`\"\"` en el alta (§2.3). |
+| PK sin `IDENTITY` | **Resuelto** (G-DATA) | PK explícita en el body del `POST` (R-037); validar unicidad → `409`. |
+| Fórmulas `max(...)` malinterpretadas | Abierto | Semántica documentada (§2.4) con pruebas de borde; revisar con el responsable. |
+| `Productos` de dos niveles | Abierto | Carga explícita de vigencias + orden por `ProdFchVig`; prueba con N vigencias. |
+| Colisión de nombre `Feriados` (transacción vs. carpeta) | Abierto | Usar `type: 'Transaction'` explícito en las consultas MCP. |
 
 ## 7. Secuencia de ejecución
 
 1. [x] Aprobar `spec.md`, `plan.md`, `tasks.md` (**G-SPEC**) — *2026-10-16*.
-2. [ ] Validar esquema contra `Rentas` si hay credenciales (**G-DATA**); si no, registrar ASM.
+2. [x] Validar esquema contra `Rentas` (**G-DATA**) — *2026-10-16*: ASM-01…05 resueltos, columnas legacy y PK sin `IDENTITY` documentadas (`spec.md` §4.4/§4.5).
 3. [ ] Scaffold `backend/` (Spring Boot, Maven Wrapper) + config por env.
 4. [ ] Implementar entidades + repositorios (T-101…T-109).
 5. [ ] Implementar servicios de consulta/fórmulas/búsquedas (T-201…T-204).
