@@ -15,6 +15,7 @@ Orquestar y supervisar la migración del sistema legacy de GeneXus (15 y 18) hac
 3. **Paridad de Base de Datos**: Reutilizar la estructura relacional de SQL Server existente mapeando tablas y columnas exactas con `@Table(name = "...")` y `@Column(name = "...")`.
 4. **Límite de Archivos**: Mantener todos los archivos de configuración por debajo de las 500 líneas para optimizar el consumo de tokens.
 5. **Seguridad**: No incluir contraseñas, tokens o secretos en texto plano.
+6. **Colección Postman Sincronizada (G-POSTMAN)**: Al trabajar en el backend, TODO endpoint agregado, modificado o eliminado DEBE reflejarse en `docs/postman/ATPPuestos-API.postman_collection.json` en el mismo commit. Es una regla obligatoria de mantenimiento. Ver `docs/postman/README.md`.
 
 ## Estructura del Repositorio Target
 ```text
@@ -24,7 +25,8 @@ Orquestar y supervisar la migración del sistema legacy de GeneXus (15 y 18) hac
 ├── openspec/                  ← Especificaciones formales (EARS)
 │   ├── constitution/          ← Reglas del stack
 │   └── features/              ← Especificaciones por módulo
-├── docs/                      ← Sistema de diseño UI/UX (design.md)
+├── docs/                      ← Diseño UI/UX (design.md), análisis, y colección Postman
+│   └── postman/               ← Colección Postman de la API (G-POSTMAN, obligatoria)
 ├── backend/                   ← Proyecto Java Spring Boot
 └── frontend/                  ← Proyecto Angular Standalone
 ```
