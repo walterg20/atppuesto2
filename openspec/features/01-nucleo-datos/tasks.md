@@ -34,53 +34,53 @@
 
 ## D. Scaffold backend (T-0xx)
 
-- [ ] T-001 Crear `backend/` con Spring Boot 3.x + **Maven Wrapper** (`mvnw`, `mvnw.cmd`, `.mvn/wrapper`).
-- [ ] T-002 Añadir dependencias: `spring-boot-starter-web`, `spring-boot-starter-data-jpa`, `spring-boot-starter-validation`, `mssql-jdbc`, `spring-boot-starter-test`.
-- [ ] T-003 Configurar `application.yml` con `${DB_URL}`/`${DB_USER}`/`${DB_PASSWORD}` y `ddl-auto=none` (R-204, R-205).
-- [ ] T-004 Crear paquete base `ar.com.atp.puestos` con subpaquetes `nucleo/{domain,repository,service,web,web/dto}` y `shared`.
-- [ ] T-005 Añadir un `HealthController` (`/api/v1/health`) y verificar arranque sin BD (perfil de test).
+- [x] T-001 Crear `backend/` con Spring Boot 3.x + **Maven Wrapper** (`mvnw`, `mvnw.cmd`, `.mvn/wrapper`). *(Spring Boot 3.5.16, Maven 3.9.11, JDK 17)*
+- [x] T-002 Añadir dependencias: `spring-boot-starter-web`, `spring-boot-starter-data-jpa`, `spring-boot-starter-validation`, `mssql-jdbc`, `spring-boot-starter-test`. *(+ `h2` test-scope para arranque sin BD)*
+- [x] T-003 Configurar `application.yml` con `${DB_URL}`/`${DB_USER}`/`${DB_PASSWORD}` y `ddl-auto=none` (R-204, R-205).
+- [x] T-004 Crear paquete base `ar.com.atp.puestos` con subpaquetes `nucleo/{domain,repository,service,web,web/dto}` y `shared`.
+- [x] T-005 Añadir un `HealthController` (`/api/v1/health`) y verificar arranque sin BD (perfil de test). *(BUILD SUCCESS; 2 pruebas OK)*
 
 ## E. Entidades y repositorios (T-1xx)
 
-- [ ] T-101 Entidad `Provincia` → `@Table(name="PROVINCI")`; incluir columnas legacy `ProvCodAfip` (`@Column(nullable=false)`, default `0`) (R-001, R-002, R-036, R-205).
-- [ ] T-102 Entidad `Localidad` → `@Table(name="Localida")` + `@ManyToOne` `Provincia` sobre `ProvCod` (asociación lógica, sin FK física); incluir `LocCodAfip` legacy (R-003, R-036).
-- [ ] T-103 Entidad `Calle` → `@Table(name="CALLES")` + legacy `CallAlt1/2/3`.
-- [ ] T-104 Entidad `Camino` → `@Table(name="CAMINOS")`.
-- [ ] T-105 Entidad `Area` → `@Table(name="Areas")` (**`AreaId` → `BigDecimal`**, `decimal(10,0)`) + legacy `AreaBaja/AreaEmails(NOT NULL)/AreaAdjun/AreaRespons` (R-036).
-- [ ] T-106 Entidad `Jurisdiccion` → `@Table(name="Jurisdic")`.
-- [ ] T-107 Entidad `Feriado` → `@Table(name="FERIADOS")` (PK `FerFecha` `LocalDateTime`; `FerDescripcion`→`@Column(name="FerDescrip")`; auditoría `NOT NULL`).
-- [ ] T-108 Entidad `Producto` → `@Table(name="PRODUCTO")` + `@OneToMany` a `ProductoVigencia` (R-004); legacy `ProdReppa`; `ProdIMax*`/`UMedNombre` `@Transient`.
-- [ ] T-109 Entidad `ProductoVigencia` → `@Table(name="PRODUCT1")` con `@IdClass` (`ProdCod`+`ProdFchVig` `LocalDateTime`); `ProdImpu1/2` `NOT NULL`; legacy `ProdImpu5/ProdFeLog/ProdUsu`.
-- [ ] T-110 Repositorios Spring Data para las 9 entidades (incl. `ProductoVigenciaRepository.findVigenteHastaHoy`).
+- [x] T-101 Entidad `Provincia` → `@Table(name="PROVINCI")`; incluir columnas legacy `ProvCodAfip` (`@Column(nullable=false)`, default `0`) (R-001, R-002, R-036, R-205).
+- [x] T-102 Entidad `Localidad` → `@Table(name="Localida")` + `@ManyToOne` `Provincia` sobre `ProvCod` (asociación lógica, sin FK física); incluir `LocCodAfip` legacy (R-003, R-036).
+- [x] T-103 Entidad `Calle` → `@Table(name="CALLES")` + legacy `CallAlt1/2/3`.
+- [x] T-104 Entidad `Camino` → `@Table(name="CAMINOS")`.
+- [x] T-105 Entidad `Area` → `@Table(name="Areas")` (**`AreaId` → `BigDecimal`**, `decimal(10,0)`) + legacy `AreaBaja/AreaEmails(NOT NULL)/AreaAdjun/AreaRespons` (R-036).
+- [x] T-106 Entidad `Jurisdiccion` → `@Table(name="Jurisdic")`.
+- [x] T-107 Entidad `Feriado` → `@Table(name="FERIADOS")` (PK `FerFecha` `LocalDateTime`; `FerDescripcion`→`@Column(name="FerDescrip")`; auditoría `NOT NULL`).
+- [x] T-108 Entidad `Producto` → `@Table(name="PRODUCTO")` + `@OneToMany` a `ProductoVigencia` (R-004); legacy `ProdReppa`; `ProdIMax*`/`UMedNombre` `@Transient`.
+- [x] T-109 Entidad `ProductoVigencia` → `@Table(name="PRODUCT1")` con **`@EmbeddedId` + `@MapsId`** (`ProductoVigenciaId`: `ProdCod`+`ProdFchVig` `LocalDateTime`); `ProdImpu1/2` `NOT NULL`; legacy `ProdImpu5/ProdFeLog/ProdUsu`. *(implementado con `@EmbeddedId`+`@MapsId` en lugar de `@IdClass`: evita el `INSERT` con `NULL` en la FK-mapeada-como-PK del patrón id compuesto unidireccional; validado contra DDL H2)*
+- [x] T-110 Repositorios Spring Data para las 9 entidades (incl. `ProductoVigenciaRepository.findVigenteHastaHoy`). *(`ProductoRepository` con `@Query` explícita para `order by`)*
 
 ## F. Servicios (T-2xx)
 
-- [ ] T-201 `NucleoConsultaService`: listados y búsquedas por clave (catálogos).
-- [ ] T-202 `BusquedaService.busDesLoc(locCod)` equivalente a `Bus_DesLoc` (R-010).
-- [ ] T-203 `BusquedaService.buscarCamino(camID)` con `TRIM(CanRuta)` (R-011).
-- [ ] T-204 `ProductoService.importesVigentes(prodCod)` implementa `ProdIMax1..4` con `0` por defecto (R-005).
-- [ ] T-205 `NucleoEscrituraService`: alta/modificación/baja de maestras; **PK provista en el body** (sin `IDENTITY`) y detección de PK duplicada → excepción de conflicto (R-030, R-031, R-037); aplicación de defaults a columnas legacy `NOT NULL` (`0`/`\"\"`) (R-036).
-- [ ] T-206 Auditoría de `Feriado`: rellenar `FerFchReg` (server time) y `FerUsuario` en servidor (R-033).
-- [ ] T-207 `ProductoService.guardar(producto, vigencias)`: persistencia atómica raíz+hijas, unicidad de `ProdFchVig` (R-034); recálculo derivados sin persistir (R-035).
+- [x] T-201 `NucleoConsultaService`: listados y búsquedas por clave (catálogos).
+- [x] T-202 `BusquedaService.busDesLoc(locCod)` equivalente a `Bus_DesLoc` (R-010). *(método `nombreLocalidad`)*
+- [x] T-203 `BusquedaService.buscarCamino(camID)` con `TRIM(CanRuta)` (R-011). *(método `rutaCamino`)*
+- [x] T-204 `ProductoService.importesVigentes(prodCod)` implementa `ProdIMax1..4` con `0` por defecto (R-005).
+- [x] T-205 `NucleoEscrituraService`: alta/modificación/baja de maestras; **PK provista en el body** (sin `IDENTITY`) y detección de PK duplicada → excepción de conflicto (R-030, R-031, R-037); aplicación de defaults a columnas legacy `NOT NULL` (`0`/`\"\"`) (R-036).
+- [x] T-206 Auditoría de `Feriado`: rellenar `FerFchReg` (server time) y `FerUsuario` en servidor (R-033). *(`app.auditoria.usuario`, default `SISTEMA`)*
+- [x] T-207 `ProductoService.guardar(producto, vigencias)`: persistencia atómica raíz+hijas, unicidad de `ProdFchVig` (R-034); recálculo derivados sin persistir (R-035).
 
 ## G. Controladores REST (T-3xx)
 
-- [ ] T-301 `ProvinciaController` (`GET /provincias`, `/provincias/{provCod}`).
-- [ ] T-302 `LocalidadController` (`GET /localidades`, `/localidades/{locCod}`, `/localidades/{locCod}/nombre`).
-- [ ] T-303 `CalleController` (`GET /calles`).
-- [ ] T-304 `CaminoController` (`GET /caminos`, `/caminos/{camId}/ruta`).
-- [ ] T-305 `AreaController` (`GET /areas`).
-- [ ] T-306 `JurisdiccionController` (`GET /jurisdicciones`).
-- [ ] T-307 `FeriadoController` (`GET /feriados?desde&hasta`).
-- [ ] T-308 `ProductoController` (`GET /productos`, `/productos/{prodCod}`, `/productos/{prodCod}/importes-vigentes`).
-- [ ] T-309 Manejo uniforme de errores `{ code, message }` + `404` (R-023) + `409` (R-031) + `400` Bean Validation (R-032).
-- [ ] T-310 `POST` de las 8 maestras (201 + `Location`; **PK requerida en el body** R-037; 409 PK duplicada) — R-030/R-031/R-037.
-- [ ] T-310b Sembrar defaults de columnas legacy `NOT NULL` en el alta (`ProvCodAfip=0`, `LocCodAfip=0`, `AreaEmails=\"\"`) — R-036.
-- [ ] T-311 `PUT /provincias/{provCod}`, `/localidades/{locCod}`, `/calles/{callCod}` — R-030.
-- [ ] T-312 `PUT /caminos/{camId}`, `/areas/{areaId}`, `/jurisdicciones/{jurCod}` — R-030.
-- [ ] T-313 `PUT /feriados/{ferFecha}` con auditoría automática — R-030/R-033.
-- [ ] T-314 `PUT /productos/{prodCod}` con vigencias anidadas (P-03) — R-034.
-- [ ] T-315 `DELETE` de las 8 maestras (204 / 404) — R-030/R-031.
+- [x] T-301 `ProvinciaController` (`GET /provincias`, `/provincias/{provCod}`).
+- [x] T-302 `LocalidadController` (`GET /localidades`, `/localidades/{locCod}`, `/localidades/{locCod}/nombre`).
+- [x] T-303 `CalleController` (`GET /calles`).
+- [x] T-304 `CaminoController` (`GET /caminos`, `/caminos/{camId}/ruta`).
+- [x] T-305 `AreaController` (`GET /areas`).
+- [x] T-306 `JurisdiccionController` (`GET /jurisdicciones`).
+- [x] T-307 `FeriadoController` (`GET /feriados?desde&hasta`).
+- [x] T-308 `ProductoController` (`GET /productos`, `/productos/{prodCod}`, `/productos/{prodCod}/importes-vigentes`).
+- [x] T-309 Manejo uniforme de errores `{ code, message }` + `404` (R-023) + `409` (R-031) + `400` Bean Validation (R-032).
+- [x] T-310 `POST` de las 8 maestras (201 + `Location`; **PK requerida en el body** R-037; 409 PK duplicada) — R-030/R-031/R-037.
+- [x] T-310b Sembrar defaults de columnas legacy `NOT NULL` en el alta (`ProvCodAfip=0`, `LocCodAfip=0`, `AreaEmails=\"\"`) — R-036.
+- [x] T-311 `PUT /provincias/{provCod}`, `/localidades/{locCod}`, `/calles/{callCod}` — R-030.
+- [x] T-312 `PUT /caminos/{camId}`, `/areas/{areaId}`, `/jurisdicciones/{jurCod}` — R-030.
+- [x] T-313 `PUT /feriados/{ferFecha}` con auditoría automática — R-030/R-033.
+- [x] T-314 `PUT /productos/{prodCod}` con vigencias anidadas (P-03) — R-034.
+- [x] T-315 `DELETE` de las 8 maestras (204 / 404) — R-030/R-031.
 
 ## H. Pruebas y verificación (T-4xx — puerta G-TEST)
 
