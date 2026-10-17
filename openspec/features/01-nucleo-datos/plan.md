@@ -272,6 +272,33 @@ record ProductoEscrituraDto(@NotNull Integer prodCod, @NotBlank @Size(max = 25) 
 | PK **provista por el cliente** (sin `IDENTITY` en `Rentas`) | R-037 | `*ControllerWriteIT` (sin PK → 400; PK duplicada → 409) |
 | Columna física truncada `FerDescripcion → FerDescrip` (ASM-01) | R-205 | `FeriadoRepositoryIT` (`@Column(name = \"FerDescrip\")`) |
 
+### 5.1 Evidencia G-TEST
+
+Puerta **G-TEST** verificada el **2026-10-16** con el Maven Wrapper sobre JDK 17:
+
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Java\jdk-17"
+.\mvnw.cmd -B clean test
+```
+
+Resultado: **`Tests run: 80, Failures: 0, Errors: 0, Skipped: 0` → BUILD SUCCESS**.
+
+| Suite (T-xxx) | Clase | Pruebas | Resultado |
+|---|---|---|---|
+| T-401 | `ProductoServiceTest` (parametrizado `ProdIMax1..4`) | 10 | OK |
+| T-402 | `BusquedaServiceTest` (`Bus_DesLoc`, `BuscarCamino`) | 8 | OK |
+| T-403 | `NucleoLecturaControllerTest` (`@WebMvcTest`, 7 recursos) | 20 | OK |
+| T-406 | `NucleoEscrituraControllerTest` (`@WebMvcTest`, 8 recursos) | 40 | OK |
+| — | `PuestosApplicationTests` + `HealthControllerTest` (pre-existentes) | 2 | OK |
+| **Total** | | **80** | **0 fallos** |
+
+**Pruebas de integración (T-404/T-407)**: por diseño **no** las ejecuta surefire (sufijo `*IT`); en esta corrida se **compilaron** con el resto (`test-compile` OK) pero quedaron **omitidas** por el gate `@EnabledIfEnvironmentVariable(named = "ATP_DB_IT", matches = "true")`. Para ejecutarlas contra `Rentas` (perfil `dev`, `ddl-auto=none`, rollback transaccional) hay que exportar las credenciales de BD y `ATP_DB_IT=true`:
+
+```powershell
+$env:ATP_DB_IT = "true"
+.\mvnw.cmd -B test "-Dtest=*IT" "-Dsurefire.failIfNoSpecifiedTests=false"
+```
+
 ## 6. Riesgos y mitigaciones
 
 | Riesgo | Estado | Mitigación / resultado |
@@ -288,9 +315,9 @@ record ProductoEscrituraDto(@NotNull Integer prodCod, @NotBlank @Size(max = 25) 
 
 1. [x] Aprobar `spec.md`, `plan.md`, `tasks.md` (**G-SPEC**) — *2026-10-16*.
 2. [x] Validar esquema contra `Rentas` (**G-DATA**) — *2026-10-16*: ASM-01…05 resueltos, columnas legacy y PK sin `IDENTITY` documentadas (`spec.md` §4.4/§4.5).
-3. [ ] Scaffold `backend/` (Spring Boot, Maven Wrapper) + config por env.
-4. [ ] Implementar entidades + repositorios (T-101…T-109).
-5. [ ] Implementar servicios de consulta/fórmulas/búsquedas (T-201…T-204).
-6. [ ] Implementar controladores REST lectura (T-301…T-309) y **escritura ABM (T-310…T-318)**.
-7. [ ] Pruebas (T-401…T-405) y matriz de paridad.
+3. [x] Scaffold `backend/` (Spring Boot, Maven Wrapper) + config por env. *(2026-10-16)*
+4. [x] Implementar entidades + repositorios (T-101…T-109). *(2026-10-16)*
+5. [x] Implementar servicios de consulta/fórmulas/búsquedas (T-201…T-204). *(2026-10-16)*
+6. [x] Implementar controladores REST lectura (T-301…T-309) y **escritura ABM (T-310…T-318)**. *(2026-10-16)*
+7. [x] Pruebas (T-401…T-405) y matriz de paridad. *(2026-10-16, G-TEST: 80/80 — ver §5.1)*
 8. [ ] (Fase 2) Scaffold `frontend/` + `ListadoLocalidades` + **pantallas ABM con diseño del origen** (T-501…T-506).
