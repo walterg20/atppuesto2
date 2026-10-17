@@ -299,6 +299,15 @@ $env:ATP_DB_IT = "true"
 .\mvnw.cmd -B test "-Dtest=*IT" "-Dsurefire.failIfNoSpecifiedTests=false"
 ```
 
+**Corrida T-404 (lectura) contra `Rentas` — 2026-10-16**: cargando las credenciales de `.env` (sin pisar los defaults con valores vacíos) y `ATP_DB_IT=true` se ejecutaron las 8 clases `*RepositoryIT` (`-Dtest=*RepositoryIT`). Resultado: **`Tests run: 16, Failures: 0, Errors: 0, Skipped: 0` → BUILD SUCCESS**, es decir 16/16 en verde sobre datos reales (paridad de lectura, G-DATA). T-407 (escritura con rollback) **no** se ejecutó en esta pasada.
+
+Ajustes necesarios para alcanzar esa paridad:
+
+- **Nombres de columna legacy (R-205)**: sin estrategia explícita, Hibernate derivaba `snake_case` y producía 14 errores `SQL-207` (*Invalid column name*). Se fijaron `PhysicalNamingStrategyStandardImpl` e `ImplicitNamingStrategyJpaCompliantImpl` en `application.yml` para que respete los nombres físicos declarados en cada `@Column`.
+- **`RTRIM` (SQL) ≡ `stripTrailing()` (Java)**, no `trim()`: el legacy tiene valores con espacio inicial (p. ej. `" DODERO"`).
+- **Ordenamiento (collation de Rentas)**: ni `String.CASE_INSENSITIVE_ORDER` ni `java.text.Collator` la reproducen. La collation es case/accent-insensitive, pliega la eñe a `N` (`ÑANDUBAY` ordena antes que `NAPALPI`) y ordena espacio/signos antes que dígitos y letras (`CAMPO DE LA CHOZA` antes que `CAMPO DECASO`). Se implementó `ar.com.atp.puestos.support.SqlCollation.spanish()` (clave de orden primaria) y se usa en `LocalidadRepositoryIT` y `ProductoRepositoryIT`.
+- **`FeriadoRepositoryIT`**: `hasSameSizeAs(findAll())` no aplica (hay fechas nulas o fuera de rango); se reemplazó por un conteo con la misma semántica del predicado.
+
 ## 6. Riesgos y mitigaciones
 
 | Riesgo | Estado | Mitigación / resultado |
@@ -319,5 +328,5 @@ $env:ATP_DB_IT = "true"
 4. [x] Implementar entidades + repositorios (T-101…T-109). *(2026-10-16)*
 5. [x] Implementar servicios de consulta/fórmulas/búsquedas (T-201…T-204). *(2026-10-16)*
 6. [x] Implementar controladores REST lectura (T-301…T-309) y **escritura ABM (T-310…T-318)**. *(2026-10-16)*
-7. [x] Pruebas (T-401…T-405) y matriz de paridad. *(2026-10-16, G-TEST: 80/80 — ver §5.1)*
+7. [x] Pruebas (T-401…T-406) y matriz de paridad. *(2026-10-16, G-TEST: 80/80; T-404: 16/16 IT de lectura en verde — ver §5.1)*
 8. [ ] (Fase 2) Scaffold `frontend/` + `ListadoLocalidades` + **pantallas ABM con diseño del origen** (T-501…T-506).

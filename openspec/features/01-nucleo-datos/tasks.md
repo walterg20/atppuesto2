@@ -87,7 +87,7 @@
 - [x] T-401 `ProductoServiceTest` parametrizado para `ProdIMax1..4` (sin vigencias / pasadas / futuras / hoy). *(10 pruebas)*
 - [x] T-402 `BusquedaServiceTest` para `Bus_DesLoc` y `BuscarCamino` (existente/inexistente/`Trim`). *(8 pruebas)*
 - [x] T-403 Pruebas de contrato (MockMvc) lectura para R-020…R-023 (200/404). *(`NucleoLecturaControllerTest`, 20 pruebas)*
-- [x] T-404 Pruebas de integración de lectura por entidad (G-DATA), marcadas para ejecutarse solo con BD. *(8 `*RepositoryIT`, gate `ATP_DB_IT=true`)*
+- [x] T-404 Pruebas de integración de lectura por entidad (G-DATA), marcadas para ejecutarse solo con BD. *(8 `*RepositoryIT`, 16 pruebas; gate `ATP_DB_IT=true`; 16/16 en verde contra Rentas)*
 - [x] T-405 Completar la **matriz de paridad** (`plan.md` §5) y adjuntar evidencia (G-TEST). *(ver `plan.md` §5.1)*
 - [x] T-406 Pruebas de contrato escritura: ciclo crear→modificar→eliminar por entidad + duplicado (409) + payload inválido (400) — R-030…R-032. *(`NucleoEscrituraControllerTest`, 44 pruebas)*
 - [x] T-407 `FeriadoControllerWriteIT`: auditoría automática (R-033). `ProductoControllerWriteIT`: atomicidad y unicidad de vigencias (R-034) y recálculo de derivados (R-035). *(gate `ATP_DB_IT=true`)*
