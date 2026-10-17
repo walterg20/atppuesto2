@@ -1,0 +1,12 @@
+# Perfil de test (T-005): la aplicacion arranca SIN conexion a SQL Server.
+# Usa H2 en memoria; ddl-auto=none => no se valida ni genera esquema,
+# de modo que el contexto carga aunque no existan las tablas legacy.
+spring:
+  datasource:
+    url: jdbc:h2:mem:atppuestos;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=MSSQLServer
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: none

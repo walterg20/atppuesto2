@@ -35,12 +35,14 @@ Desktop.ini
 .DS_Store
 
 # === GeneXus (nunca versionar artefactos de la KB en este repo) ===
+# Patrones de carpeta anclados a la raiz (con "/") para NO ignorar
+# paquetes Java legitimamente llamados "web" dentro de backend/.
 *.gxw
 *.xpz
 *.gxSource
 *.gxForm
-Data*/
-web/
+/Data*/
+/web/
 
 # === Temporales ===
 *.tmp
