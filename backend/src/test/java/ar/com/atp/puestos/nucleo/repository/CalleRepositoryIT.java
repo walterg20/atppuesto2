@@ -39,7 +39,7 @@ class CalleRepositoryIT {
         assertThat(calles).allSatisfy(c -> {
             assertThat(c.getCallCod()).isNotNull();
             if (c.getCallNom() != null) {
-                assertThat(c.getCallNom()).isEqualTo(c.getCallNom().trim());
+                assertThat(c.getCallNom()).isEqualTo(c.getCallNom().stripTrailing());
             }
         });
     }

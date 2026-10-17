@@ -54,6 +54,13 @@ class FeriadoRepositoryIT {
 
         assertThat(rango).allSatisfy(f -> assertThat(f.getFerFecha()).isBetween(desde, hasta));
         assertThat(rango).isSortedAccordingTo(Comparator.comparing(Feriado::getFerFecha));
-        assertThat(rango).hasSameSizeAs(repository.findAll());
+
+        // hasSameSizeAs(findAll()) no aplica: hay registros con FerFecha nula o fuera del rango
+        // 1900..2999 (p. ej. fechas centinela). Se compara contra la misma semantica del predicado.
+        long esperado = repository.findAll().stream()
+                .filter(f -> f.getFerFecha() != null)
+                .filter(f -> !f.getFerFecha().isBefore(desde) && !f.getFerFecha().isAfter(hasta))
+                .count();
+        assertThat(rango).hasSize((int) esperado);
     }
 }

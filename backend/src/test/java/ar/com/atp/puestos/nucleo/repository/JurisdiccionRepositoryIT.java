@@ -38,7 +38,7 @@ class JurisdiccionRepositoryIT {
         assertThat(jurisdicciones).allSatisfy(j -> {
             assertThat(j.getJurCod()).isNotNull();
             if (j.getJurNom() != null) {
-                assertThat(j.getJurNom()).isEqualTo(j.getJurNom().trim());
+                assertThat(j.getJurNom()).isEqualTo(j.getJurNom().stripTrailing());
             }
         });
         assertThat(repository.count()).isEqualTo(jurisdicciones.size());

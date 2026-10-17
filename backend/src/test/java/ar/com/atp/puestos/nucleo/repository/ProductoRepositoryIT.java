@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import ar.com.atp.puestos.nucleo.domain.Producto;
 import ar.com.atp.puestos.nucleo.domain.ProductoVigencia;
+import ar.com.atp.puestos.support.SqlCollation;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
@@ -61,7 +62,7 @@ class ProductoRepositoryIT {
                 .filter(Objects::nonNull)
                 .map(String::trim)
                 .collect(Collectors.toList());
-        assertThat(descripciones).isSortedAccordingTo(String.CASE_INSENSITIVE_ORDER);
+        assertThat(descripciones).isSortedAccordingTo(SqlCollation.spanish());
     }
 
     @Test

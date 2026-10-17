@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import ar.com.atp.puestos.nucleo.domain.Localidad;
 import ar.com.atp.puestos.nucleo.domain.Provincia;
+import ar.com.atp.puestos.support.SqlCollation;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -42,7 +43,7 @@ class LocalidadRepositoryIT {
         assertThat(localidades).allSatisfy(l -> {
             assertThat(l.getLocCod()).isNotNull();
             if (l.getLocNom() != null) {
-                assertThat(l.getLocNom()).isEqualTo(l.getLocNom().trim());
+                assertThat(l.getLocNom()).isEqualTo(l.getLocNom().stripTrailing());
             }
         });
     }
@@ -78,6 +79,6 @@ class LocalidadRepositoryIT {
                 .filter(Objects::nonNull)
                 .map(String::trim)
                 .collect(Collectors.toList());
-        assertThat(nombres).isSortedAccordingTo(String.CASE_INSENSITIVE_ORDER);
+        assertThat(nombres).isSortedAccordingTo(SqlCollation.spanish());
     }
 }

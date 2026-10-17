@@ -17,6 +17,9 @@ spring:
     # Paridad de BD: Hibernate NUNCA genera DDL sobre el esquema existente (R-204, R-205).
     hibernate:
       ddl-auto: none
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+        implicit-strategy: org.hibernate.boot.model.naming.ImplicitNamingStrategyJpaCompliantImpl
     open-in-view: false
     properties:
       hibernate:

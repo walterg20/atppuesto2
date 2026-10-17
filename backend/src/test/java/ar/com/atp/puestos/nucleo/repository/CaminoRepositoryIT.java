@@ -38,7 +38,7 @@ class CaminoRepositoryIT {
         assertThat(caminos).allSatisfy(c -> {
             assertThat(c.getCamID()).isNotBlank();
             if (c.getCanRuta() != null) {
-                assertThat(c.getCanRuta()).isEqualTo(c.getCanRuta().trim());
+                assertThat(c.getCanRuta()).isEqualTo(c.getCanRuta().stripTrailing());
             }
         });
         assertThat(repository.count()).isEqualTo(caminos.size());

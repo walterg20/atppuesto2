@@ -39,7 +39,7 @@ class AreaRepositoryIT {
         assertThat(areas).allSatisfy(a -> {
             assertThat(a.getAreaId()).isNotNull();
             if (a.getAreaDesc() != null) {
-                assertThat(a.getAreaDesc()).isEqualTo(a.getAreaDesc().trim());
+                assertThat(a.getAreaDesc()).isEqualTo(a.getAreaDesc().stripTrailing());
             }
         });
         assertThat(repository.count()).isEqualTo(areas.size());
